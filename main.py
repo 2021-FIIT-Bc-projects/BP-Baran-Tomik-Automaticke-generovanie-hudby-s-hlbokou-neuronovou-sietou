@@ -1,11 +1,19 @@
-from music21 import converter, instrument, note, chord, stream, pitch
+# from music21 import converter, instrument, note, chord  #, stream, pitch
+from music21 import *
 import numpy as np
+import tensorflow
 
-#tieto prec
-from collections import Counter
-import matplotlib.pyplot as plt
-import warnings
-warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
+# from keras.models import Sequential
+# from keras.layers import Dense, LSTM, Activation, Dropout
+#
+from keras.callbacks import ModelCheckpoint
+# from keras.utils import np_utils
+from keras.layers import *
+from keras.models import *
+from keras.callbacks import *
+
+
+notes_count = 0
 
 
 def parse_midi_file(file):
@@ -20,17 +28,6 @@ def parse_midi_file(file):
 
     midi_sample = converter.parse(file)
     instruments = instrument.partitionByInstrument(midi_sample)
-
-    # if instruments:
-    #     notes_to_parse = instruments.parts[0].recurse()
-    # else:
-    #     notes_to_parse = midi_sample.flat.notes
-    #
-    # for element in notes_to_parse:
-    #     if isinstance(element, note.Note):
-    #         notes.append(str(element.pitch))
-    #     elif isinstance(element, chord.Chord):
-    #         notes.append('.'.join(str(n) for n in element.normalOrder))
 
     for part in instruments.parts:
         # print(str(part))                          #show Piano Templat
@@ -65,6 +62,34 @@ def parse_midi_file(file):
 #     for p in part_stream:
 #         aux = p
 #         print (p.partName)
+
+
+def mapping(notes):
+    sequence_length = 100
+
+    pitchnames = sorted(set(item for item in notes))
+    note_to_int = dict((note_var, number) for number, note_var in enumerate(pitchnames))
+
+    nn_input = []
+    nn_output = []
+
+    # create input sequences and the corresponding outputs
+    for i in range(0, len(notes) - sequence_length, 1):
+        sequence_in = notes[i:i + sequence_length]
+        sequence_out = notes[i + sequence_length]
+
+        nn_input.append([note_to_int[char] for char in sequence_in])
+        nn_output.append(note_to_int[sequence_out])
+    n_patterns = len(nn_input)
+
+    # # reshape the input into a format compatible with LSTM layers
+    nn_input = np.reshape(nn_input, (n_patterns, sequence_length, 1))
+    # # normalize input
+    # nn_input = nn_input / float(n_vocab)
+    #
+    # nn_output = np_utils.to_categorical(nn_output)
+
+    return nn_input, nn_output, note_to_int, pitchnames
 
 
 def save_midi_file(notes):
@@ -168,55 +193,44 @@ def hluposti():
     pass
 
 
+def lstm():
+    model = Sequential()
+
+    # recurrent layer
+    model.add(LSTM(128, return_sequences=True))
+    model.add(LSTM(128))
+    # model.add(LSTM(64, return_sequences=False, dropout=0.1, recurrent_dropout=0.1))
+
+    # fully connected layer
+    model.add(Dense(256, activation='relu'))
+
+    # fropout for regularization
+    model.add(Dropout(0.5))
+
+    # output layer
+    model.add(Dense(notes_count, activation='softmax'))               # n_vocab
+    model.compile(loss='sparse_categorical_crossentropy', optimizer='adam')
+    return model
+
+
 if __name__ == '__main__':
 
-    midi_file = 'midi_samples\\the_nightmare_begins-cut1_new.mid'
+    midi_file = 'midi_samples\\FFVII_BATTLE.mid'
     notes_and_chords, metadata_p = parse_midi_file(midi_file)
+    notes_count = len(notes_and_chords)
 
     print('main')
     print(notes_and_chords)
     print(metadata_p)
+    print('koniec mojho')
 
-    sequence_length = 100
+    lstm_input, lstm_output, notes_to_int, pitch_names = mapping(notes_and_chords)
+    # print(lstm_input)
+    # print(lstm_output)
+    # print(notes_to_int)
+    # print(pitch_names)
 
-    pitchnames = sorted(set(item for item in notes_and_chords))
-    note_to_int = dict((note, number) for number, note in enumerate(pitchnames))
-    print(pitchnames)
-    print(note_to_int)
-
-    network_input = []
-    network_output = []
-
-    # create input sequences and the corresponding outputs
-    for i in range(0, len(notes_and_chords) - sequence_length, 1):
-        sequence_in = notes_and_chords[i:i + sequence_length]
-        sequence_out = notes_and_chords[i + sequence_length]
-        network_input.append([note_to_int[char] for char in sequence_in])
-        network_output.append(note_to_int[sequence_out])
-    n_patterns = len(network_input)
-
-    # reshape the input into a format compatible with LSTM layers
-    print(len(network_input))
-    network_input = np.reshape(network_input, (n_patterns, sequence_length, 1))
-
-    print('network_input')
-    print(network_input)
-    print('network_output')
-    print(network_output)
-    print('n_patterns')
-    print(n_patterns)
-
-
-    # normalize input
-    # network_input = network_input / float(n_vocab)
-    # network_output = np_utils.to_categorical(network_output)
-
-
-
-
-
-
-
-
+    # lstm_model = lstm()
+    # lstm_model.summary()
 
     # save_midi_file(notes_and_chords)
