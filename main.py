@@ -1,19 +1,15 @@
-# from music21 import converter, instrument, note, chord  #, stream, pitch
-from music21 import *
+from music21 import converter, instrument, note, chord  #, stream, pitch
 import numpy as np
-import tensorflow
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout, LSTM    #CuDNNLSTM
+import os
 
-# from keras.models import Sequential
-# from keras.layers import Dense, LSTM, Activation, Dropout
-#
 from keras.callbacks import ModelCheckpoint
-# from keras.utils import np_utils
-from keras.layers import *
-from keras.models import *
-from keras.callbacks import *
+from keras.utils import np_utils
 
 
-notes_count = 0
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
 def parse_midi_file(file):
@@ -53,7 +49,7 @@ def parse_midi_file(file):
 
                 else:
                     metadata_piano["else_count"] += 1
-    return np.array(notes_piano), metadata_piano
+    return notes_piano, metadata_piano
 
 
 # def list_instruments(midi):
@@ -85,9 +81,9 @@ def mapping(notes):
     # # reshape the input into a format compatible with LSTM layers
     nn_input = np.reshape(nn_input, (n_patterns, sequence_length, 1))
     # # normalize input
-    # nn_input = nn_input / float(n_vocab)
-    #
-    # nn_output = np_utils.to_categorical(nn_output)
+    nn_input = nn_input / float(n_patterns)
+
+    nn_output = np_utils.to_categorical(nn_output)
 
     return nn_input, nn_output, note_to_int, pitchnames
 
@@ -193,31 +189,56 @@ def hluposti():
     pass
 
 
-def lstm():
+def lstm(nn_input, nn_output, n_pitch):
     model = Sequential()
 
-    # recurrent layer
-    model.add(LSTM(128, return_sequences=True))
-    model.add(LSTM(128))
-    # model.add(LSTM(64, return_sequences=False, dropout=0.1, recurrent_dropout=0.1))
+    # # recurrent layer
+    # model.add(LSTM(128, return_sequences=True))
+    # model.add(Dropout(0.2))
+    # # model.add(LSTM(64, return_sequences=False, dropout=0.1, recurrent_dropout=0.1))
+    #
+    # model.add(LSTM(128, return_sequences=True))
+    # model.add(Dropout(0.2))
+    #
+    # # fully connected layer
+    # model.add(Dense(32, activation='relu'))
+    # # fropout for regularization
+    # model.add(Dropout(0.2))
+    #
+    # # output layer
+    # model.add(Dense(diff_notes, activation='softmax'))
+    # model.compile(loss='sparse_categorical_crossentropy', optimizer='adam')
+    # return model
 
-    # fully connected layer
-    model.add(Dense(256, activation='relu'))
+    model.add(LSTM(
+        256,
+        input_shape=(nn_input.shape[1], nn_input.shape[2]),
+        return_sequences=True
+    ))
+    model.add(Dropout(0.3))
+    model.add(LSTM(512, return_sequences=True))
+    model.add(Dropout(0.3))
+    model.add(LSTM(256))
+    model.add(Dense(256))
+    model.add(Dropout(0.3))
+    model.add(Dense(n_pitch, activation='softmax'))
+    model.compile(loss='categorical_crossentropy', optimizer='rmsprop')
 
-    # fropout for regularization
-    model.add(Dropout(0.5))
-
-    # output layer
-    model.add(Dense(notes_count, activation='softmax'))               # n_vocab
-    model.compile(loss='sparse_categorical_crossentropy', optimizer='adam')
-    return model
+    filepath = "weights\\weights-improvement-{epoch:02d}-{loss:.4f}-bigger.hdf5"
+    checkpoint = ModelCheckpoint(
+        filepath, monitor='loss',
+        verbose=0,
+        save_best_only=True,
+        mode='min'
+    )
+    callbacks_list = [checkpoint]
+    model.fit(nn_input, nn_output, epochs=10, batch_size=64, callbacks=callbacks_list)
 
 
 if __name__ == '__main__':
 
     midi_file = 'midi_samples\\FFVII_BATTLE.mid'
     notes_and_chords, metadata_p = parse_midi_file(midi_file)
-    notes_count = len(notes_and_chords)
 
     print('main')
     print(notes_and_chords)
@@ -230,7 +251,8 @@ if __name__ == '__main__':
     # print(notes_to_int)
     # print(pitch_names)
 
-    # lstm_model = lstm()
+    # lstm_model =
+    lstm(lstm_input, lstm_output, len(pitch_names))
     # lstm_model.summary()
 
     # save_midi_file(notes_and_chords)

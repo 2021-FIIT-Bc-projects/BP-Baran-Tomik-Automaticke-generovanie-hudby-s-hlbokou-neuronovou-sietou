@@ -8,5 +8,6 @@
 
 * Music21
 * Keras
+* h5py
 
 
