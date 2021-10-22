@@ -1,55 +1,71 @@
-from music21 import converter, instrument, note, chord  #, stream, pitch
+from music21 import converter, instrument, note, chord, stream, pitch
 import numpy as np
-import tensorflow as tf
+# import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, LSTM    #CuDNNLSTM
-import os
-
 from keras.callbacks import ModelCheckpoint
 from keras.utils import np_utils
-
+import os
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
 def parse_midi_file(file):
 
-    # notes_to_parse = None
     notes_piano = []
     metadata_piano = {
         "note_count": 0,
         "chord_count": 0,
+        "rest": 0,
         "else_count": 0
     }
+    else_arr = []
 
     midi_sample = converter.parse(file)
     instruments = instrument.partitionByInstrument(midi_sample)
 
     for part in instruments.parts:
-        # print(str(part))                          #show Piano Templat
 
         if 'Piano' in str(part):
 
             notes_to_parse = part.recurse()
-            # print(len(notes_to_parse))            #show Piano Template len (7)
+            print(len(notes_to_parse))            #show Piano Template len
+            print('m')
 
             for element in notes_to_parse:
                 if isinstance(element, note.Note):
-                    notes_piano.append(str(element.pitch))
+                    if str(element.duration.type) == 'complex':
+                        notes_piano.append('n_'+str(element.pitch)+'_'+str(element.duration.components[0].type))
+                    else:
+                        notes_piano.append('n_'+str(element.pitch)+'_'+str(element.duration.type))
                     metadata_piano["note_count"] += 1
-                    # print(str(element.pitches).split(' ')[-1][:-3])
-                    # print(element.duration.type)
-                    # print(element)
 
                 elif isinstance(element, chord.Chord):
-                    notes_piano.append('.'.join(str(n) for n in element.normalOrder))
+                    if str(element.duration.type) == 'complex':
+                        chord_ = '.'.join(str(n) for n in element.normalOrder)
+                        notes_piano.append('c_' + chord_ + '_' + str(element.duration.components[0].type))
+                    else:
+                        print(element.normalOrder)
+                        chord_ = '.'.join(str(n) for n in element.normalOrder)
+                        notes_piano.append('c_'+chord_+'_'+str(element.duration.type))
                     metadata_piano["chord_count"] += 1
-                    # print(str(element.pitches).split(' ')[-1][:-2])
-                    # print(element.notes)
 
+                elif isinstance(element, note.Rest):
+                    if str(element.duration.type) == 'complex':
+                        # print(element.duration.components[0].type)
+                        notes_piano.append('r_' + str(element.duration.components[0].type))
+                        # print('v')
+                    else:
+                        notes_piano.append('r_'+str(element.duration.type))
+                        # print('m')
+                    metadata_piano["rest"] += 1
                 else:
                     metadata_piano["else_count"] += 1
-    return notes_piano, metadata_piano
+                    else_arr.append(element)
+
+        print('m')
+    print('m')
+    return notes_piano, metadata_piano, else_arr
 
 
 # def list_instruments(midi):
@@ -61,7 +77,7 @@ def parse_midi_file(file):
 
 
 def mapping(notes):
-    sequence_length = 100
+    sequence_length = 20        #100
 
     pitchnames = sorted(set(item for item in notes))
     note_to_int = dict((note_var, number) for number, note_var in enumerate(pitchnames))
@@ -88,105 +104,54 @@ def mapping(notes):
     return nn_input, nn_output, note_to_int, pitchnames
 
 
-def save_midi_file(notes):
+def save_midi_file(output, mapping_keys):
 
-    # n = note.Note(str(element.pitches).split(' ')[-1][:-3], type=element.duration.type)
-    # s.append(n)
-    # s.show('text')print('text')
+    unmapped_from_int = []
     converted = []
 
-    for element in notes:
-        if '.' in element:      #chors
-            converted.append(chord.Chord(element))
-            print(converted)
+    # unmapping notes, chores and rests from output integers
+    for element in output:
+        index = np.where(element)[0][0]
+        for key in mapping_keys:
+            if int(mapping_keys[key]) == index:
+                unmapped_from_int.append(key)
 
-        else:                   #note
-            converted.append(note.Note(element))
-            print(converted)
+    # creating note, chores and rest objects
+    for element in unmapped_from_int:
+        if 'n_' in element:                         #note
+            element = element[2:]                           #cut the 'n_' mark
+            note_ = note.Note(element.split('_')[0])        #creating note
+            note_.duration.type = element.split('_')[1]     #adding duration type
+            converted.append(note_)                         #appending array
 
-        print(converted)
+        elif 'c_' in element:                       #chord
+            element = element[2:]                           #cut the 'c_' mark
+            chord_str = []
+            notes_in_chord = element.split('_')[0].split('.')
+            for current_n in notes_in_chord:
+                chord_str.append(note.Note(int(current_n)))
 
-    # print(np.array(converted))
-    # print(ne)
+            chord_obj = chord.Chord(chord_str)
+            # chord_.duration.type = element.split('_')[1]
+            converted.append(chord_obj)
+            print('b')
 
-    # midi_stream = stream.Stream()
-    # midi_stream.append(notes)
-    # midi_stream.write('midi', fp='midi_samples\\test_output.mid')
+        elif 'r_' in element:                       #rest
+            element = element[2:]                           #cut the 'r_' mark
+            # rest = note.Rest()
+            # rest.duration.quarterLength = 2.0
+            # converted.append(rest)
+            converted.append(note.Rest(type=element))
 
-    # try:
-    #     midi_stream = stream.Stream(notes[0])
-    #     # midi_stream.append(notes)
-    #     midi_stream.write('midi', fp='midi_samples\\test_output.mid')
-    # except:
-    #     print('save_midi_file ERROR')
+    print(converted)
 
-
-def hluposti():
-    # notes_ = [element for note_ in notes_and_chords for element in note_]
-    #
-    # # No. of unique notes
-    # unique_notes = list(set(notes_))
-    # print(len(unique_notes))
-    #
-    # freq = dict(Counter(notes_))
-    #
-    # # consider only the frequencies
-    # no = [count for _, count in freq.items()]
-    #
-    # # set the figure size
-    # plt.figure(figsize=(5, 5))
-    #
-    # # plot
-    # plt.hist(no)
-    # # plt.show()
-    #
-    # frequent_notes = [note_ for note_, count in freq.items() if count >= 50]
-    # print(len(frequent_notes))
-    #
-    # new_music = []
-    #
-    # for notes in notes_and_chords:
-    #     temp = []
-    #     for note_ in notes:
-    #         if note_ in frequent_notes:
-    #             temp.append(note_)
-    #     new_music.append(temp)
-    #
-    # new_music = np.array(new_music)
-    #
-    # no_of_timesteps = 32
-    # x = []
-    # y = []
-    #
-    # for note_ in new_music:
-    #     print(len(note_))
-    #     for i in range(0, len(note_) - no_of_timesteps, 1):
-    #         # preparing input and output sequences
-    #         input_ = note_[i:i + no_of_timesteps]
-    #         output = note_[i + no_of_timesteps]
-    #
-    #         x.append(input_)
-    #         y.append(output)
-    #
-    # x = np.array(x)
-    # y = np.array(y)
-    # print(x)
-    # print(y)
-
-    # unique_x = list(set(x.ravel()))
-    # x_note_to_int = dict((note_, number) for number, note_ in enumerate(unique_x))
-    #
-    # x_seq = []
-    # for i in x:
-    #     temp = []
-    #     for j in i:
-    #         # assigning unique integer to every note
-    #         temp.append(x_note_to_int[j])
-    #     x_seq.append(temp)
-    #
-    # x_seq = np.array(x_seq)
-    # print(x_seq)
-    pass
+    try:
+        midi_stream = stream.Stream()
+        midi_stream.append(converted)
+        midi_stream.write('midi', fp='midi_samples\\outputs\\test_output.mid')
+        print('created new MIDI file')
+    except:
+        print('save_midi_file ERROR')
 
 
 def lstm(nn_input, nn_output, n_pitch):
@@ -237,22 +202,27 @@ def lstm(nn_input, nn_output, n_pitch):
 
 if __name__ == '__main__':
 
-    midi_file = 'midi_samples\\FFVII_BATTLE.mid'
-    notes_and_chords, metadata_p = parse_midi_file(midi_file)
+    midi_file = 'midi_samples\\the_nightmare_begins-cut1_new.mid'
+    notes_and_chords, metadata_p, else_array = parse_midi_file(midi_file)
 
     print('main')
     print(notes_and_chords)
     print(metadata_p)
+    print(else_array)
     print('koniec mojho')
 
     lstm_input, lstm_output, notes_to_int, pitch_names = mapping(notes_and_chords)
+    print('po mapping')
+
+    save_midi_file(lstm_output, notes_to_int)
+
     # print(lstm_input)
     # print(lstm_output)
     # print(notes_to_int)
     # print(pitch_names)
 
     # lstm_model =
-    lstm(lstm_input, lstm_output, len(pitch_names))
+    # lstm(lstm_input, lstm_output, len(pitch_names))
     # lstm_model.summary()
 
-    # save_midi_file(notes_and_chords)
+
