@@ -6,8 +6,24 @@ from tensorflow.keras.layers import Dense, Dropout, LSTM    #CuDNNLSTM
 from keras.callbacks import ModelCheckpoint
 from keras.utils import np_utils
 import os
+from fractions import Fraction
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+
+# source of this function : https://stackoverflow.com/questions/1806278/convert-fraction-to-float
+def convert_to_float(frac_str):
+    try:
+        return float(frac_str)
+    except ValueError:
+        num, denom = frac_str.split('/')
+        try:
+            leading, num = num.split(' ')
+            whole = float(leading)
+        except ValueError:
+            whole = 0
+        frac = float(num) / float(denom)
+        return whole - frac if whole < 0 else whole + frac
 
 
 def parse_midi_file(file):
@@ -31,45 +47,42 @@ def parse_midi_file(file):
             notes_to_parse = part.recurse()
             print(len(notes_to_parse))            # show Piano Template len
             print('m')
+            last_offset = 0
+
+            # note  -> n_pitch_quarterLength_deltaOffset
+            # chord -> c_pitch_quarterLength_deltaOffset
+            # rest  -> r_quarterLength_deltaOffset
 
             for element in notes_to_parse:
                 if isinstance(element, note.Note):
-                    # if str(element.duration.type) == 'complex':
-                    #     notes_piano.append('n_'+str(element.pitch)+'_'+str(element.duration.components[0].type))
-                    #     print(element.pitch)
-                    #     print(element.duration.components[0].type)
-                    #     print(element.duration.components[1].type)
-                    #
-                    # else:
-                    #     notes_piano.append('n_'+str(element.pitch)+'_'+str(element.duration.type))
-                    notes_piano.append('n_'+str(element.pitch)+'_'+str(element.duration.quarterLength))
+                    delta_offset = Fraction(element.offset) - last_offset
+                    last_offset = Fraction(element.offset)
+
+                    notes_piano.append('n_'+str(element.pitch)+'_'+str(element.duration.quarterLength)+'_'+str(delta_offset))
+                    # notes_piano.append('n_'+str(element.pitch)+'_'+str(element.duration.quarterLength))
                     metadata_piano["note_count"] += 1
 
                 elif isinstance(element, chord.Chord):
+                    delta_offset = Fraction(element.offset) - last_offset
+                    last_offset = Fraction(element.offset)
+
                     chord_ = '.'.join(str(n) for n in element.pitches)
-                    # if str(element.duration.type) == 'complex':
-                    #     notes_piano.append('c_' + chord_ + '_' + str(element.duration.components[0].type))
-                    # else:
-                    #     notes_piano.append('c_'+chord_+'_'+str(element.duration.type))
-                    notes_piano.append('c_' + chord_ + '_' + str(element.duration.quarterLength))
+                    notes_piano.append('c_' + chord_ + '_' + str(element.duration.quarterLength)+'_'+str(delta_offset))
+                    # notes_piano.append('c_' + chord_ + '_' + str(element.duration.quarterLength))
                     metadata_piano["chord_count"] += 1
 
                 elif isinstance(element, note.Rest):
-                    # if str(element.duration.type) == 'complex':
-                    #     # print(element.duration.components[0].type)
-                    #     notes_piano.append('r_' + str(element.duration.components[0].type))
-                    #     # print('v')
-                    # else:
-                    #     notes_piano.append('r_'+str(element.duration.type))
-                    #     # print('m')
-                    notes_piano.append('r_' + str(element.duration.quarterLength))
+                    delta_offset = Fraction(element.offset) - last_offset
+                    last_offset = Fraction(element.offset)
+
+                    notes_piano.append('r_' + str(element.duration.quarterLength)+'_'+str(delta_offset))
+                    # notes_piano.append('r_' + str(element.duration.quarterLength))
                     metadata_piano["rest"] += 1
                 else:
                     metadata_piano["else_count"] += 1
                     else_arr.append(element)
-
-        print('m')
-    print('m')
+        # print('m')
+    print('koniec parsovania')
     return notes_piano, metadata_piano, else_arr
 
 
@@ -82,7 +95,7 @@ def parse_midi_file(file):
 
 
 def mapping(notes):
-    sequence_length = 20        # 100
+    sequence_length = 100        # 100
 
     pitchnames = sorted(set(item for item in notes))
     note_to_int = dict((note_var, number) for number, note_var in enumerate(pitchnames))
@@ -109,25 +122,12 @@ def mapping(notes):
     return nn_input, nn_output, note_to_int, pitchnames
 
 
-# source of this function : https://stackoverflow.com/questions/1806278/convert-fraction-to-float
-def convert_to_float(frac_str):
-    try:
-        return float(frac_str)
-    except ValueError:
-        num, denom = frac_str.split('/')
-        try:
-            leading, num = num.split(' ')
-            whole = float(leading)
-        except ValueError:
-            whole = 0
-        frac = float(num) / float(denom)
-        return whole - frac if whole < 0 else whole + frac
-
-
 def save_midi_file(output, mapping_keys):
 
     unmapped_from_int = []
     converted = []
+    notes = []
+    offset = 0
 
     # unmapping notes, chores and rests from output integers
     for element in output:
@@ -140,32 +140,47 @@ def save_midi_file(output, mapping_keys):
     for element in unmapped_from_int:
         if 'n_' in element:                         # note
             element = element[2:]                                                       # cut the 'n_' mark
+            offset += Fraction(element.split('_')[2])
             note_ = note.Note(element.split('_')[0])                                    # creating note
             note_.duration.quarterLength = convert_to_float(element.split('_')[1])      # adding duration quarterLength
+            note_.offset = offset                                                       # adding offset
+            note_.storedInstrument = instrument.Piano()
             converted.append(note_)                                                     # appending final array
             # print('f')
 
         elif 'c_' in element:                       # chord
             element = element[2:]                                                       # cut the 'c_' mark
-            notes_in_chord = element.split('_')[0].split('.')                           # gettig notes in str from element
-            chord_obj = chord.Chord(notes_in_chord)                                     # creating chord form notes
-            chord_obj.duration.quarterLength = convert_to_float(element.split('_')[1])  # adding duration quarterLength
-            converted.append(chord_obj)                                                 # appending final array
-            # print('f')
+            offset += Fraction(element.split('_')[2])
+            notes_in_chord = element.split('_')[0].split('.')                           # gettig notes as string from element
+
+            notes.clear()
+            for current_note in notes_in_chord:
+                new_note = note.Note(current_note)
+                new_note.storedInstrument = instrument.Piano()
+                notes.append(new_note)
+
+            chord_ = chord.Chord(notes)                                                 # creating chord form notes
+            chord_.duration.quarterLength = convert_to_float(element.split('_')[1])     # adding duration quarterLength
+            chord_.offset = offset                                                      # adding offset
+            converted.append(chord_)                                                    # appending final array
+            print('f')
 
         elif 'r_' in element:                       # rest
             element = element[2:]                                                       # cut the 'r_' mark
-            rest = note.Rest()                                                          # creating rest
-            rest.duration.quarterLength = convert_to_float(element)                     # adding duration quarterLength
-            converted.append(rest)                                                      # appending final array
-            # converted.append(note.Rest(type=element))
+            offset += Fraction(element.split('_')[1])
+            rest_ = note.Rest()                                                         # creating rest
+            rest_.duration.quarterLength = convert_to_float(element.split('_')[0])      # adding duration quarterLength
+            rest_.offset = offset                                                       # adding offset
+            rest_.storedInstrument = instrument.Piano()
+            converted.append(rest_)                                                     # appending final array
 
     print(converted)
 
     try:
-        midi_stream = stream.Stream()
-        midi_stream.append(converted)
-        midi_stream.write('midi', fp='midi_samples\\outputs\\test_output5.mid')
+        midi_stream = stream.Stream(converted)
+        # midi_stream.append(converted)
+
+        midi_stream.write('midi', fp='midi_samples\\outputs\\26_nightmare whole.mid')
         print('created new MIDI file')
     except:
         print('save_midi_file ERROR')
@@ -219,7 +234,7 @@ def lstm(nn_input, nn_output, n_pitch):
 
 if __name__ == '__main__':
 
-    midi_file = 'midi_samples\\the_nightmare_begins-cut1_new.mid'
+    midi_file = 'midi_samples\\the_nightmare_begins-whole.mid'
     notes_and_chords, metadata_p, else_array = parse_midi_file(midi_file)
 
     print('main')
@@ -230,6 +245,7 @@ if __name__ == '__main__':
 
     lstm_input, lstm_output, notes_to_int, pitch_names = mapping(notes_and_chords)
     print('po mapping')
+    print('d')
 
     save_midi_file(lstm_output, notes_to_int)
 
