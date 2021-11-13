@@ -5,6 +5,8 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, LSTM    #CuDNNLSTM
 from keras.callbacks import ModelCheckpoint
 from keras.utils import np_utils
+from keras.preprocessing.sequence import TimeseriesGenerator
+
 import os
 from fractions import Fraction
 
@@ -95,7 +97,8 @@ def parse_midi_file(file):
 
 
 def mapping(notes):
-    sequence_length = 100        # 100
+    # original
+    sequence_length = 10        # 100
 
     pitchnames = sorted(set(item for item in notes))
     note_to_int = dict((note_var, number) for number, note_var in enumerate(pitchnames))
@@ -112,6 +115,8 @@ def mapping(notes):
         nn_output.append(note_to_int[sequence_out])
     n_patterns = len(nn_input)
 
+    print('r')
+
     # reshape the input into a format compatible with LSTM layers
     nn_input = np.reshape(nn_input, (n_patterns, sequence_length, 1))
     # normalize input
@@ -120,6 +125,43 @@ def mapping(notes):
     nn_output = np_utils.to_categorical(nn_output)
 
     return nn_input, nn_output, note_to_int, pitchnames
+
+
+
+
+# def mapping(notes):
+#     # skuska implementovat TimeseriesGenerator
+#     sequence_length = 50        # 100
+#
+#     pitchnames = sorted(set(item for item in notes))
+#     note_to_int = dict((note_var, number) for number, note_var in enumerate(pitchnames))
+#
+#     notes_as_int = list(note_to_int.values())
+#     nn_input = []
+#     nn_output = []
+#
+#     generator = TimeseriesGenerator(note_to_int, note_to_int, length=sequence_length, batch_size=1)
+#
+#     # create input sequences and the corresponding outputs
+#     for i in range(0, len(notes) - sequence_length, 1):
+#         sequence_in = notes[i:i + sequence_length]
+#         sequence_out = notes[i + sequence_length]
+#
+#         nn_input.append([note_to_int[char] for char in sequence_in])
+#         nn_output.append(note_to_int[sequence_out])
+#     n_patterns = len(nn_input)
+#
+#     print(generator)
+#     print('r')
+#
+#     # reshape the input into a format compatible with LSTM layers
+#     nn_input = np.reshape(nn_input, (n_patterns, sequence_length, 1))
+#     # normalize input
+#     nn_input = nn_input / float(n_patterns)
+#
+#     nn_output = np_utils.to_categorical(nn_output)
+#
+#     return nn_input, nn_output, note_to_int, pitchnames
 
 
 def save_midi_file(output, mapping_keys):
@@ -163,7 +205,7 @@ def save_midi_file(output, mapping_keys):
             chord_.duration.quarterLength = convert_to_float(element.split('_')[1])     # adding duration quarterLength
             chord_.offset = offset                                                      # adding offset
             converted.append(chord_)                                                    # appending final array
-            print('f')
+            # print('f')
 
         elif 'r_' in element:                       # rest
             element = element[2:]                                                       # cut the 'r_' mark
@@ -174,13 +216,13 @@ def save_midi_file(output, mapping_keys):
             rest_.storedInstrument = instrument.Piano()
             converted.append(rest_)                                                     # appending final array
 
-    print(converted)
+    # print(converted)
 
     try:
         midi_stream = stream.Stream(converted)
         # midi_stream.append(converted)
 
-        midi_stream.write('midi', fp='midi_samples\\outputs\\26_nightmare whole.mid')
+        midi_stream.write('midi', fp='midi_samples\\outputs\\the_nightmare_begins_cut_no_chords-prediction.mid')
         print('created new MIDI file')
     except:
         print('save_midi_file ERROR')
@@ -232,30 +274,46 @@ def lstm(nn_input, nn_output, n_pitch):
     model.fit(nn_input, nn_output, epochs=10, batch_size=64, callbacks=callbacks_list)
 
 
+def simple_lstm(nn_input, nn_output, n_pitch):
+
+    lstm_model = Sequential()
+
+    lstm_model.add(LSTM(
+        256,
+        activation='relu',
+        input_shape=(nn_input.shape[1], nn_input.shape[2]),
+    ))
+    lstm_model.add(Dense(1))
+    lstm_model.compile(optimizer='adam', loss='mse')
+    lstm_model.fit(nn_input, nn_output, epochs=250, batch_size=8)
+    return lstm_model
+
+
 if __name__ == '__main__':
 
-    midi_file = 'midi_samples\\the_nightmare_begins-whole.mid'
+    midi_file = 'midi_samples\\the_nightmare_begins_cut_no_chords.mid'
     notes_and_chords, metadata_p, else_array = parse_midi_file(midi_file)
 
     print('main')
-    print(notes_and_chords)
-    print(metadata_p)
-    print(else_array)
-    print('koniec mojho')
+    # print(notes_and_chords)
+    # print(metadata_p)
+    # print(else_array)
+    # print('koniec mojho')
 
     lstm_input, lstm_output, notes_to_int, pitch_names = mapping(notes_and_chords)
-    print('po mapping')
-    print('d')
 
-    save_midi_file(lstm_output, notes_to_int)
+    print('......')
 
-    # print(lstm_input)
-    # print(lstm_output)
-    # print(notes_to_int)
-    # print(pitch_names)
+    model = simple_lstm(lstm_input, lstm_output, len(pitch_names))
 
-    # lstm_model =
-    # lstm(lstm_input, lstm_output, len(pitch_names))
+    sequence_length = len(lstm_input[0])
+    last_input_seq = lstm_input[len(lstm_input) - 1]
+
+    x_in = np.array(last_input_seq).reshape((1, sequence_length, 1))
+    out = model.predict(x_in, verbose=1)
+
+    save_midi_file(out, notes_to_int)
+
     # lstm_model.summary()
 
 
