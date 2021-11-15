@@ -1,4 +1,4 @@
-from music21 import converter, instrument, note, chord, stream #, pitch
+from music21 import converter, instrument, note, chord, stream  #, pitch
 import numpy as np
 import tensorflow as tf
 from keras.models import Sequential
@@ -10,6 +10,7 @@ from keras.utils import np_utils
 
 import os
 from fractions import Fraction
+import time
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -29,6 +30,18 @@ def convert_to_float(frac_str):
         return whole - frac if whole < 0 else whole + frac
 
 
+def load_midi_file(file_name):
+
+    midi_sample = None
+    try:
+        midi_sample = converter.parse(file_name)
+    except OSError as e:
+        print('\nERROR loading MIDI file in load_midi_file()')
+        print(e)
+        quit()
+    return midi_sample
+
+
 def parse_midi_file(file):
 
     notes_piano = []
@@ -40,7 +53,7 @@ def parse_midi_file(file):
     }
     else_arr = []
 
-    midi_sample = converter.parse(file)
+    midi_sample = load_midi_file(file)
     instruments = instrument.partitionByInstrument(midi_sample)
 
     for part in instruments.parts:
@@ -84,7 +97,7 @@ def parse_midi_file(file):
                     metadata_piano["else_count"] += 1
                     else_arr.append(element)
         # print('m')
-    print('koniec parsovania')
+    # print('koniec parsovania')
     return notes_piano, metadata_piano, else_arr
 
 
@@ -98,7 +111,7 @@ def parse_midi_file(file):
 
 def mapping(notes):
     # original
-    sequence_length = 5        # 100
+    sequence_length = 10        # 100
 
     pitchnames = set(notes)
 
@@ -118,7 +131,7 @@ def mapping(notes):
     input_count = len(nn_input)
     mapped_n_count = float(len(note_to_int))
 
-    print('---')
+    # print('---')
 
     # reshape the input into a format compatible with LSTM layers
     nn_input = np.reshape(nn_input, (input_count, sequence_length, 1))
@@ -128,7 +141,7 @@ def mapping(notes):
     #     note_to_int[i] = note_to_int[i] / mapped_n_count
 
     nn_output = np_utils.to_categorical(nn_output)
-    print('---')
+    # print('---')
     return nn_input, nn_output, note_to_int, pitchnames
 
 
@@ -167,7 +180,7 @@ def mapping(notes):
 #     return nn_input, nn_output, note_to_int, pitchnames
 
 
-def save_midi_file(output, mapping_keys):
+def create_midi_file(output, mapping_keys):
 
     unmapped_from_int = []
     converted = []
@@ -175,7 +188,6 @@ def save_midi_file(output, mapping_keys):
     offset = 0
 
     # # unmapping notes, chores and rests from output integers
-    # # v2
     for element in output:
         for key in mapping_keys:
             if int(mapping_keys.get(key)) == element:
@@ -226,121 +238,174 @@ def save_midi_file(output, mapping_keys):
         midi_stream = stream.Stream(converted)
         # midi_stream.append(converted)
 
-        midi_stream.write('midi', fp='midi_samples\\outputs\\67_tests.mid')
+        midi_stream.write('midi', fp='midi_samples\\outputs\\weight_tests.mid')
         print('created new MIDI file')
-    except:
-        print('save_midi_file ERROR')
+    except OSError as e:
+        print('\nERROR creating MIDI file in create_midi_file()')
+        print(e)
 
 
-def lstm(nn_input, nn_output, n_pitch):
-    lstm_model = Sequential()
+def info_print_out(metadata, unique_elements_count):
+    all_count = metadata['note_count'] + metadata['chord_count'] + metadata['rest']
+    print('\n')
+    print('_________________________________________________')
+    print('\n')
+    print('number of all elements:      ', all_count)
+    print('notes:    ', metadata['note_count'])
+    print('chords:   ', metadata['chord_count'])
+    print('rests:    ', metadata['rest'])
+    print('number of unique elements:   ', unique_elements_count)
+    print('\n')
+    print('_________________________________________________')
+    print('\n')
 
-    # # recurrent layer
-    # lstm_model.add(LSTM(128, return_sequences=True))
+
+def create_lstm_model(nn_input, n_pitch):
+    # hidden_nodes = int(2/3 * (len(nn_input[0]) * len(nn_output[0])))
+    # print('hidden nodes: ', hidden_nodes)
+
+    # # jedna vrstva, dence nakonci
+    # lstm_model = Sequential()
+    # lstm_model.add(LSTM(
+    #     20,
+    #     activation='tanh',
+    #     input_shape=(nn_input.shape[1], nn_input.shape[2]),
+    #     # return_sequences=True,
+    # ))
     # lstm_model.add(Dropout(0.2))
-    # # lstm_model.add(LSTM(64, return_sequences=False, dropout=0.1, recurrent_dropout=0.1))
-    #
-    # lstm_model.add(LSTM(128, return_sequences=True))
-    # lstm_model.add(Dropout(0.2))
-    #
-    # # fully connected layer
-    # lstm_model.add(Dense(32, activation='relu'))
-    # # fropout for regularization
-    # lstm_model.add(Dropout(0.2))
-    #
-    # # output layer
-    # lstm_model.add(Dense(diff_notes, activation='softmax'))
-    # lstm_model.compile(loss='sparse_categorical_crossentropy', optimizer='adam')
+    # lstm_model.add(Dense(n_pitch))
+    # lstm_model.compile(optimizer='rmsprop', loss='mse')    # loss='mean_squared_error', loss='categorical_crossentropy'
+    # lstm_model.fit(nn_input, nn_output, epochs=150, batch_size=8)
     # return lstm_model
 
+    lstm_model = Sequential()
     lstm_model.add(LSTM(
         256,
         input_shape=(nn_input.shape[1], nn_input.shape[2]),
-        return_sequences=True
+        return_sequences=True,
     ))
-    lstm_model.add(Dropout(0.3))
+
+    lstm_model.add(Dropout(0.2))
     lstm_model.add(LSTM(512, return_sequences=True))
-    lstm_model.add(Dropout(0.3))
+    lstm_model.add(Dropout(0.2))
     lstm_model.add(LSTM(256))
+    lstm_model.add(Activation('relu'))
     lstm_model.add(Dense(256))
-    lstm_model.add(Dropout(0.3))
-    lstm_model.add(Dense(n_pitch, activation='softmax'))
-    lstm_model.compile(loss='categorical_crossentropy', optimizer='rmsprop')
+    lstm_model.add(Dropout(0.2))
+    lstm_model.add(Dense(n_pitch))
+    lstm_model.add(Activation('softmax'))
+
+    # Activation = tanh, softmax, relu
+    # optimizer = adam, rmsprop
+    # loss = mean_squared_error, categorical_crossentropy, sparse_categorical_crossentropy
+    lstm_model.compile(optimizer='adam', loss='categorical_crossentropy')
+
+    return lstm_model
+
+
+def load_weight_to_model(empt_model):
+    filepath = 'weights\\toLoadWeights\\weights.hdf5'
+    try:
+        empt_model.load_weights(filepath)
+    except OSError as e:
+        print('\nERROR loading weights file in load_weight_to_model()')
+        print(e)
+        quit()
+    return empt_model
+
+
+def train_lstm(nn, nn_input, nn_output):
 
     filepath = "weights\\weights-improvement-{epoch:02d}-{loss:.4f}-bigger.hdf5"
     checkpoint = ModelCheckpoint(
         filepath, monitor='loss',
-        verbose=0,
+        verbose=1,
         save_best_only=True,
         mode='min'
     )
     callbacks_list = [checkpoint]
-    lstm_model.fit(nn_input, nn_output, epochs=10, batch_size=64, callbacks=callbacks_list)
+
+    nn.fit(nn_input, nn_output, epochs=250, batch_size=64, callbacks=callbacks_list)
+    return nn
 
 
-def simple_lstm(nn_input, nn_output, n_pitch):
-    # hidden_nodes = int(2/3 * (len(nn_input[0]) * len(nn_output[0])))
-    # print('hidden nodes: ', hidden_nodes)
+def generate_music(nn_model, nn_input, mapped_notes_count):
 
-    lstm_model = Sequential()
-    lstm_model.add(LSTM(
-        20,
-        activation='tanh',
-        input_shape=(nn_input.shape[1], nn_input.shape[2]),
-        # return_sequences=True,
-    ))
-    lstm_model.add(Dropout(0.2))
-    lstm_model.add(Dense(n_pitch))
-    lstm_model.compile(optimizer='rmsprop', loss='mse')    # loss='mean_squared_error', loss='categorical_crossentropy'
-    lstm_model.fit(nn_input, nn_output, epochs=150, batch_size=8)
-    return lstm_model
+    generated_music = []
+
+    sequence_len = len(nn_input[0])
+    # last_input_seq = nn_input[len(nn_input) - 1]
+    first_input_seq = nn_input[0]
+
+    # generovanie pitch1
+    x_in = np.array(first_input_seq).reshape((1, sequence_len, 1))
+    x_in = x_in / float(mapped_notes_count)
+    out = nn_model.predict(x_in, verbose=1)
+    # print('out: ', out)
+    out_ee = np.argmax(out)
+    # print('out_ee: ', out_ee)
+
+    generated_music.append(out_ee)
+
+    # generovanie pitch2
+    x_in = np.array(first_input_seq).reshape((1, sequence_len, 1))
+    x_in = x_in / float(mapped_notes_count)
+    out = nn_model.predict(x_in, verbose=1)
+    out_ee = np.argmax(out)
+
+    generated_music.append(out_ee)
+
+    return generated_music
+
+
+def mapping_for_debug(notes2):
+    pitchnames2 = set(notes2)
+    note_to_int2 = dict((note_var, number) for number, note_var in enumerate(pitchnames2))
+
+    print('chodopice')
+    provi = []
+    for el in notes2:
+        for key in note_to_int2:
+            if key == el:
+                provi.append(note_to_int2[key])
+                # print(" c: ")
+                break
+    return provi, note_to_int2
 
 
 if __name__ == '__main__':
 
     print('Num GPUs Available: ', len(tf.config.list_physical_devices('GPU')))
-    midi_file = None
-    gen_music = []
 
-    try:
-        midi_file = 'midi_samples\\67notes.mid'
-    except OSError as e:
-        print('ERROR loading MIDI file')
-        exit(1)
+    midi_file = 'midi_samples\\FFVII_BATTLE.mid'
 
-    # parsovanie midi suboru
-    notes_and_chords, metadata_p, else_array = parse_midi_file(midi_file)
+    notes_and_chords, metadata_p, else_array = parse_midi_file(midi_file)               # parse MIDI file
+    lstm_input, lstm_output, notes_to_int, pitch_names = mapping(notes_and_chords)      # mapping MIDI file parts
+    info_print_out(metadata_p, len(notes_to_int))
 
-    # mapovanie midi suboru
-    lstm_input, lstm_output, notes_to_int, pitch_names = mapping(notes_and_chords)
-    mapped_notes_count = len(notes_to_int)
+    # print('---')
 
-    print('---')
+    start_time = time.time()
+    empty_model = create_lstm_model(lstm_input, len(pitch_names))                       # load layers of NN to model
 
-    # trenovanie NN
-    model = simple_lstm(lstm_input, lstm_output, len(pitch_names))
+    model = train_lstm(empty_model, lstm_input, lstm_output)                            # train NN
+    # model = load_weight_to_model(empty_model)                                           # load weights to model
 
-    sequence_len = len(lstm_input[0])
-    last_input_seq = lstm_input[len(lstm_input) - 1]
-    first_input_seq = lstm_input[0]
+    # new_music = generate_music(model, lstm_input, len(notes_to_int))                    # predict new music
+    # create_midi_file(new_music, notes_to_int)                                           # save new music to MIDI file
 
-    # generovanie pitch1
-    x_in = np.array(first_input_seq).reshape((1, sequence_len, 1))
-    x_in = x_in / float(mapped_notes_count)
-    out = model.predict(x_in, verbose=1)
-    # print('out: ', out)
-    out_ee = np.argmax(out)
-    # print('out_ee: ', out_ee)
-    gen_music.append(out_ee)
+    print("\n\n\n\n%s seconds" % (round((time.time() - start_time), 1)))
 
-    # generovanie pitch2
-    x_in = np.array(first_input_seq).reshape((1, sequence_len, 1))
-    x_in = x_in / float(mapped_notes_count)
-    out = model.predict(x_in, verbose=1)
-    out_ee = np.argmax(out)
-    gen_music.append(out_ee)
+    # model.summary()
 
-    # ukladanie vygenerovanych pitch do midi suboru
-    save_midi_file(gen_music, notes_to_int)
 
-    # lstm_model.summary()
+# if __name__ == '__main__':        # debig main for MIDI parsing and creating
+#
+#     midi_file = 'midi_samples\\FFVII_BATTLE.mid'
+#
+#     notes_and_chords, metadata_p, else_array = parse_midi_file(midi_file)
+#     new_music, notes_to_int = mapping_for_debug(notes_and_chords)
+#
+#     create_midi_file(new_music, notes_to_int)
+#
+#     # model.summary()
