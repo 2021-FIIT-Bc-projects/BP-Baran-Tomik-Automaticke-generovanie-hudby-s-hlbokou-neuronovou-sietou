@@ -1,0 +1,24 @@
+1
+
+po epoch 82 pisalo loss nan
+52s
+
+2
+od zaciatku loss nejak 0.0071
+52s
+
+3
+od zaciatku loss nejak 0.0071
+55s
+
+4
+po epoch 233 pisalo loss nan
+51s
+
+5
+asi najlepsie zatial, loss isiel z 4.79 na 0.06
+66s
+
+6
+loss : 4.8 -> 0.06
+56s
