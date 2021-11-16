@@ -187,6 +187,12 @@ def create_midi_file(output, mapping_keys):
     notes = []
     offset = 0
 
+    metadata = {
+        "note": 0,
+        "chord": 0,
+        "rest": 0
+    }
+
     # # unmapping notes, chores and rests from output integers
     for element in output:
         for key in mapping_keys:
@@ -204,6 +210,7 @@ def create_midi_file(output, mapping_keys):
             note_.offset = offset                                                       # adding offset
             note_.storedInstrument = instrument.Piano()
             converted.append(note_)                                                     # appending final array
+            metadata['note'] = metadata['note'] + 1
             # print('f')
 
         elif 'c_' in element:                       # chord
@@ -221,6 +228,7 @@ def create_midi_file(output, mapping_keys):
             chord_.duration.quarterLength = convert_to_float(element.split('_')[1])     # adding duration quarterLength
             chord_.offset = offset                                                      # adding offset
             converted.append(chord_)                                                    # appending final array
+            metadata['chord'] = metadata['chord'] + 1
             # print('f')
 
         elif 'r_' in element:                       # rest
@@ -231,14 +239,16 @@ def create_midi_file(output, mapping_keys):
             rest_.offset = offset                                                       # adding offset
             rest_.storedInstrument = instrument.Piano()
             converted.append(rest_)                                                     # appending final array
+            metadata['rest'] = metadata['rest'] + 1
 
     # print(converted)
+    print('elements of newly generated music', metadata)
 
     try:
         midi_stream = stream.Stream(converted)
         # midi_stream.append(converted)
 
-        midi_stream.write('midi', fp='midi_samples\\outputs\\weight_tests.mid')
+        midi_stream.write('midi', fp='midi_samples\\outputs\\beethoven-prediction.mid')
         print('created new MIDI file')
     except OSError as e:
         print('\nERROR creating MIDI file in create_midi_file()')
@@ -304,7 +314,7 @@ def create_lstm_model(nn_input, n_pitch):
 
 
 def load_weight_to_model(empt_model):
-    filepath = 'weights\\toLoadWeights\\weights.hdf5'
+    filepath = 'weights\\toLoadWeights\\6 ffvii_battle weights-improvement-247-0.0671-bigger.hdf5'
     try:
         empt_model.load_weights(filepath)
     except OSError as e:
@@ -329,36 +339,33 @@ def train_lstm(nn, nn_input, nn_output):
     return nn
 
 
-def generate_music(nn_model, nn_input, mapped_notes_count):
+def generate_music(nn_model, nn_input, mapped_notes):
 
     generated_music = []
-
     sequence_len = len(nn_input[0])
-    # last_input_seq = nn_input[len(nn_input) - 1]
-    first_input_seq = nn_input[0]
+    mapped_notes_count = len(mapped_notes)
+    start = np.random.randint(0, len(nn_input) - 1)
+    # int_to_notes = {v: k for k, v in mapped_notes.items()}
+    pattern = nn_input[start]
 
-    # generovanie pitch1
-    x_in = np.array(first_input_seq).reshape((1, sequence_len, 1))
-    x_in = x_in / float(mapped_notes_count)
-    out = nn_model.predict(x_in, verbose=1)
-    # print('out: ', out)
-    out_ee = np.argmax(out)
-    # print('out_ee: ', out_ee)
+    note_input = np.array(pattern).reshape((1, sequence_len, 1))
+    note_input = note_input / float(mapped_notes_count)
 
-    generated_music.append(out_ee)
+    for new_note in range(100):
 
-    # generovanie pitch2
-    x_in = np.array(first_input_seq).reshape((1, sequence_len, 1))
-    x_in = x_in / float(mapped_notes_count)
-    out = nn_model.predict(x_in, verbose=1)
-    out_ee = np.argmax(out)
+        note_output = nn_model.predict(note_input, verbose=0)
+        note_output_max = np.argmax(note_output)
+        generated_music.append(note_output_max)
 
-    generated_music.append(out_ee)
+        pattern = np.append(pattern, note_output_max / float(mapped_notes_count))
+        pattern = pattern[1:sequence_len + 1]
+
+        note_input = np.array(pattern).reshape((1, sequence_len, 1))
 
     return generated_music
 
 
-def mapping_for_debug(notes2):
+def mapping_for_debug(notes2):      # maping pre simulovanie outputu z NN
     pitchnames2 = set(notes2)
     note_to_int2 = dict((note_var, number) for number, note_var in enumerate(pitchnames2))
 
@@ -373,39 +380,39 @@ def mapping_for_debug(notes2):
     return provi, note_to_int2
 
 
-if __name__ == '__main__':
-
-    print('Num GPUs Available: ', len(tf.config.list_physical_devices('GPU')))
-
-    midi_file = 'midi_samples\\FFVII_BATTLE.mid'
-
-    notes_and_chords, metadata_p, else_array = parse_midi_file(midi_file)               # parse MIDI file
-    lstm_input, lstm_output, notes_to_int, pitch_names = mapping(notes_and_chords)      # mapping MIDI file parts
-    info_print_out(metadata_p, len(notes_to_int))
-
-    # print('---')
-
-    start_time = time.time()
-    empty_model = create_lstm_model(lstm_input, len(pitch_names))                       # load layers of NN to model
-
-    model = train_lstm(empty_model, lstm_input, lstm_output)                            # train NN
-    # model = load_weight_to_model(empty_model)                                           # load weights to model
-
-    # new_music = generate_music(model, lstm_input, len(notes_to_int))                    # predict new music
-    # create_midi_file(new_music, notes_to_int)                                           # save new music to MIDI file
-
-    print("\n\n\n\n%s seconds" % (round((time.time() - start_time), 1)))
-
-    # model.summary()
-
-
-# if __name__ == '__main__':        # debig main for MIDI parsing and creating
+# if __name__ == '__main__':
+#
+#     print('Num GPUs Available: ', len(tf.config.list_physical_devices('GPU')))
 #
 #     midi_file = 'midi_samples\\FFVII_BATTLE.mid'
 #
-#     notes_and_chords, metadata_p, else_array = parse_midi_file(midi_file)
-#     new_music, notes_to_int = mapping_for_debug(notes_and_chords)
+#     notes_and_chords, metadata_p, else_array = parse_midi_file(midi_file)               # parse MIDI file
+#     lstm_input, lstm_output, notes_to_int, pitch_names = mapping(notes_and_chords)      # mapping MIDI file parts
+#     info_print_out(metadata_p, len(notes_to_int))
 #
-#     create_midi_file(new_music, notes_to_int)
+#     # print('---')
+#
+#     # start_time = time.time()
+#     empty_model = create_lstm_model(lstm_input, len(pitch_names))                       # load layers of NN to model
+#
+#     # model = train_lstm(empty_model, lstm_input, lstm_output)                            # train NN
+#     model = load_weight_to_model(empty_model)                                           # load weights to model
+#
+#     new_music = generate_music(model, lstm_input, notes_to_int)                    # predict new music
+#     create_midi_file(new_music, notes_to_int)                                           # save new music to MIDI file
+#
+#     # print("\n\n\n\n%s seconds" % (round((time.time() - start_time), 1)))
 #
 #     # model.summary()
+
+
+if __name__ == '__main__':        # debig main for MIDI parsing and creating
+
+    midi_file = 'midi_samples\\classical-piano_beethoven_opus10_2.mid'
+
+    notes_and_chords, metadata_p, else_array = parse_midi_file(midi_file)
+    new_music, notes_to_int = mapping_for_debug(notes_and_chords)
+
+    create_midi_file(new_music, notes_to_int)
+
+    # model.summary()
