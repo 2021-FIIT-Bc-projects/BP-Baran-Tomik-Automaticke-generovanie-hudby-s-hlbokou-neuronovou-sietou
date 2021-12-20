@@ -15,8 +15,8 @@ if __name__ == '__main__':
     midi_file = 'midi_samples\\FFVII_BATTLE.mid'
     notes_and_chords, lstm_input, lstm_output, notes_to_int, pitch_names = parse_MIDI.init(midi_file)
 
-    model = train_model.init(lstm_input, lstm_output, pitch_names)
-    # model = test_train_model.init(lstm_input, lstm_output, pitch_names)         # docasne
+    # model = train_model.init(lstm_input, lstm_output, pitch_names)
+    model = test_train_model.init(lstm_input, lstm_output, pitch_names)         # only for Loss visualization
 
     new_music_file_name = 'new_prediction_test_separate'
     generate_music.init(model, lstm_input, notes_to_int, new_music_file_name)
