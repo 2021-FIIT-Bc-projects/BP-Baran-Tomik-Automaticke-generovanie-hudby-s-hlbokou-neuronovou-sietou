@@ -1,6 +1,7 @@
 import parse_MIDI
 import train_model
 import generate_music
+import test_train_model         # docasne
 
 import os
 import tensorflow as tf
@@ -15,11 +16,11 @@ if __name__ == '__main__':
     notes_and_chords, lstm_input, lstm_output, notes_to_int, pitch_names = parse_MIDI.init(midi_file)
 
     model = train_model.init(lstm_input, lstm_output, pitch_names)
+    # model = test_train_model.init(lstm_input, lstm_output, pitch_names)         # docasne
 
     new_music_file_name = 'new_prediction_test_separate'
     generate_music.init(model, lstm_input, notes_to_int, new_music_file_name)
 
-    # print("\n\n\n\n%s seconds" % (round((time.time() - start_time), 1)))
     print('end')
 
     # model.summary()
