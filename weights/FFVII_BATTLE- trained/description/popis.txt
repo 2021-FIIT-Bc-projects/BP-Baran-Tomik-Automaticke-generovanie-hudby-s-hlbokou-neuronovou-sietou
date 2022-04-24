@@ -1,5 +1,5 @@
 1
-
+optimizer='rmsprop', loss='categorical_crossentropy'
 po epoch 82 pisalo loss nan
 52s
 

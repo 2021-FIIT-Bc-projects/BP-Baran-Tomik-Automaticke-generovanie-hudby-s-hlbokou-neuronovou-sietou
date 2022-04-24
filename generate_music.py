@@ -88,8 +88,7 @@ def create_midi_file(output, mapping_keys, file_name):
     try:
         midi_stream = stream.Stream(converted)
         # midi_stream.append(converted)
-
-        midi_stream.write('midi', fp='midi_samples\\outputs\\' + file_name + '.mid')
+        midi_stream.write('midi', fp='midi_samples\\outputs\\new_' + file_name + '_1.mid')
         print('created new MIDI file')
     except OSError as e:
         print('\nERROR creating MIDI file in create_midi_file()')
@@ -107,9 +106,9 @@ def generate_music(nn_model, nn_input, mapped_notes):
 
     note_input = np.array(pattern).reshape((1, sequence_len, 1))
     note_input = note_input / float(mapped_notes_count)
+    # note_input = note_inputQ / float(mapped_notes_count)
 
     for new_note in range(100):
-
         note_output = nn_model.predict(note_input, verbose=0)
         note_output_max = np.argmax(note_output)
         generated_music.append(note_output_max)
@@ -122,7 +121,7 @@ def generate_music(nn_model, nn_input, mapped_notes):
     return generated_music
 
 
-def init(model, lstm_input, notes_to_int, new_music_file_name):
+def init(model, lstm_input, notes_to_int, file_name):
 
     new_music = generate_music(model, lstm_input, notes_to_int)  # predict new music
-    create_midi_file(new_music, notes_to_int, new_music_file_name)  # save new music to MIDI file
+    create_midi_file(new_music, notes_to_int, file_name)  # save new music to MIDI file

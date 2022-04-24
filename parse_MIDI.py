@@ -2,7 +2,11 @@ from music21 import converter, instrument, note, chord
 import numpy as np
 from keras.utils import np_utils
 from fractions import Fraction
+import sklearn
+from collections import Counter
 
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
 # from keras.preprocessing.sequence import TimeseriesGenerator
 
 
@@ -18,7 +22,7 @@ def load_midi_file(file_name):
     return midi_sample
 
 
-def parse_midi_file(file):
+def parse_midi_file(file_name):
 
     notes_piano = []
     metadata_piano = {
@@ -29,12 +33,16 @@ def parse_midi_file(file):
     }
     else_arr = []
 
-    midi_sample = load_midi_file(file)
+    midi_file_path = 'midi_samples\\'+file_name+'.mid'
+    midi_sample = load_midi_file(midi_file_path)
     instruments = instrument.partitionByInstrument(midi_sample)
 
     for part in instruments.parts:
 
         if 'Piano' in str(part):
+            print('parsing PIANO')
+        # if 'Harpsichord' in str(part):
+        #     print('parsing HARPSICHORD')
 
             notes_to_parse = part.recurse()
             # print(len(notes_to_parse))            # show Piano Template len
@@ -78,17 +86,38 @@ def parse_midi_file(file):
 
 
 def mapping(notes):
-    # original
-    sequence_length = 10        # 100
+    sequence_length = 32        # 32
 
     pitchnames = set(notes)
 
     note_to_int = dict((note_var, number) for number, note_var in enumerate(pitchnames))
 
+    # ---------------
+    count_num = Counter(notes)
+    Notes = list(count_num.keys())
+    Recurrence = list(count_num.values())
+
+    # def Average_f(lst):
+    #     return sum(lst) / len(lst)
+    #
+    # print("\nAverage recurrenc for a note in notes:", Average_f(Recurrence))
+    # print("Most frequent note in notes appeared:", max(Recurrence), "times")
+    # print("Least frequent note in notes appeared:", min(Recurrence), "time")
+
+    # plt.figure(figsize=(18, 3), facecolor="#97BACB")
+    # bins = np.arange(0, (max(Recurrence)), 50)
+    # plt.hist(Recurrence, bins=bins, color="#97BACB")
+    # plt.axvline(x=100, color="#DBACC1")
+    # plt.title("Frequency Distribution Of Notes In The Corpus")
+    # plt.xlabel("Frequency Of Chords in Corpus")
+    # plt.ylabel("Number Of Chords")
+    # plt.show()
+
+    # ------
+
     nn_input = []
     nn_output = []
 
-    # create input sequences and the corresponding outputs
     for i in range(0, len(notes) - sequence_length, 1):
         sequence_in = notes[i:i + sequence_length]
         sequence_out = notes[i + sequence_length]
@@ -109,7 +138,11 @@ def mapping(notes):
     #     note_to_int[i] = note_to_int[i] / mapped_n_count
 
     nn_output = np_utils.to_categorical(nn_output)
-    # print('---')
+    print('---')
+    # print(nn_output.shape())
+
+    # X_train, X_seed, y_train, y_seed = train_test_split(nn_input, nn_output, test_size=0.2, random_state=42)
+
     return nn_input, nn_output, note_to_int, pitchnames
 
 
@@ -171,10 +204,12 @@ def info_print_out(metadata, unique_elements_count):
     print('\n')
 
 
-def init(midi_file):
+def init(file_name):
 
-    notes_and_chords, metadata_p, else_array = parse_midi_file(midi_file)               # parse MIDI file
+    notes_and_chords, metadata_p, else_array = parse_midi_file(file_name)               # parse MIDI file
     lstm_input, lstm_output, notes_to_int, pitch_names = mapping(notes_and_chords)      # mapping MIDI file parts
     info_print_out(metadata_p, len(notes_to_int))
 
-    return notes_and_chords, lstm_input, lstm_output, notes_to_int, pitch_names
+    lstm_input_shuffled, lstm_output_shuffled = sklearn.utils.shuffle(lstm_input, lstm_output)  # shuffling input and output simultaneously
+
+    return notes_and_chords, lstm_input_shuffled, lstm_output_shuffled, notes_to_int, pitch_names
