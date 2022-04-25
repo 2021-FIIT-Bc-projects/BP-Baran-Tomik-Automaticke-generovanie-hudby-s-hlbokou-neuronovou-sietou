@@ -3,11 +3,10 @@ import numpy as np
 from keras.utils import np_utils
 from fractions import Fraction
 import sklearn
-from collections import Counter
-
-import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
-# from keras.preprocessing.sequence import TimeseriesGenerator
+import os
+import gc
+# from collections import Counter
+# import tensorflow as tf
 
 
 def load_midi_file(file_name):
@@ -22,7 +21,7 @@ def load_midi_file(file_name):
     return midi_sample
 
 
-def parse_midi_file(file_name):
+def parse_midi_file(folder_path):
 
     notes_piano = []
     metadata_piano = {
@@ -31,71 +30,75 @@ def parse_midi_file(file_name):
         "rest": 0,
         "else_count": 0
     }
-    else_arr = []
+    # else_arr = []
 
-    midi_file_path = 'midi_samples\\'+file_name+'.mid'
-    midi_sample = load_midi_file(midi_file_path)
-    instruments = instrument.partitionByInstrument(midi_sample)
+    # midi_file_path = 'midi_samples\\'+file_name+'.mid'
+    # midi_files_folder = folder_path
+    all_names = []
 
-    for part in instruments.parts:
+    for oneFile in os.listdir(folder_path):
+        if oneFile.endswith(".mid"):
+            all_names.append(oneFile)
+            midi_file = folder_path+oneFile
+            midi_sample = load_midi_file(midi_file)
+            instruments = instrument.partitionByInstrument(midi_sample)
 
-        if 'Piano' in str(part):
-            print('parsing PIANO')
-        # if 'Harpsichord' in str(part):
-        #     print('parsing HARPSICHORD')
+            for part in instruments.parts:
 
-            notes_to_parse = part.recurse()
-            # print(len(notes_to_parse))            # show Piano Template len
-            last_offset = 0
+                if 'Piano' in str(part):
+                    print('parsing PIANO')
+                # if 'Harpsichord' in str(part):
+                #     print('parsing HARPSICHORD')
 
-            # note  -> n_pitch_quarterLength_deltaOffset
-            # chord -> c_pitch_quarterLength_deltaOffset
-            # rest  -> r_quarterLength_deltaOffset
+                    notes_to_parse = part.recurse()
+                    # print(len(notes_to_parse))            # show Piano Template len
+                    last_offset = 0
 
-            for element in notes_to_parse:
-                if isinstance(element, note.Note):
-                    delta_offset = Fraction(element.offset) - last_offset
-                    last_offset = Fraction(element.offset)
+                    # note  -> n_pitch_quarterLength_deltaOffset
+                    # chord -> c_pitch_quarterLength_deltaOffset
+                    # rest  -> r_quarterLength_deltaOffset
 
-                    notes_piano.append('n_'+str(element.pitch)+'_'+str(element.duration.quarterLength)+'_'+str(delta_offset))
-                    # notes_piano.append('n_'+str(element.pitch)+'_'+str(element.duration.quarterLength))
-                    metadata_piano["note_count"] += 1
+                    for element in notes_to_parse:
+                        if isinstance(element, note.Note):
+                            delta_offset = Fraction(element.offset) - last_offset
+                            last_offset = Fraction(element.offset)
 
-                elif isinstance(element, chord.Chord):
-                    delta_offset = Fraction(element.offset) - last_offset
-                    last_offset = Fraction(element.offset)
+                            notes_piano.append('n_'+str(element.pitch)+'_'+str(element.duration.quarterLength)+'_'+str(delta_offset))
+                            # notes_piano.append('n_'+str(element.pitch)+'_'+str(element.duration.quarterLength))
+                            metadata_piano["note_count"] += 1
 
-                    chord_ = '.'.join(str(n) for n in element.pitches)
-                    notes_piano.append('c_' + chord_ + '_' + str(element.duration.quarterLength)+'_'+str(delta_offset))
-                    # notes_piano.append('c_' + chord_ + '_' + str(element.duration.quarterLength))
-                    metadata_piano["chord_count"] += 1
+                        elif isinstance(element, chord.Chord):
+                            delta_offset = Fraction(element.offset) - last_offset
+                            last_offset = Fraction(element.offset)
 
-                elif isinstance(element, note.Rest):
-                    delta_offset = Fraction(element.offset) - last_offset
-                    last_offset = Fraction(element.offset)
+                            chord_ = '.'.join(str(n) for n in element.pitches)
+                            notes_piano.append('c_' + chord_ + '_' + str(element.duration.quarterLength)+'_'+str(delta_offset))
+                            # notes_piano.append('c_' + chord_ + '_' + str(element.duration.quarterLength))
+                            metadata_piano["chord_count"] += 1
 
-                    notes_piano.append('r_' + str(element.duration.quarterLength)+'_'+str(delta_offset))
-                    # notes_piano.append('r_' + str(element.duration.quarterLength))
-                    metadata_piano["rest"] += 1
-                else:
-                    metadata_piano["else_count"] += 1
-                    else_arr.append(element)
-        # print('m')
-    # print('koniec parsovania')
-    return notes_piano, metadata_piano, else_arr
+                        elif isinstance(element, note.Rest):
+                            delta_offset = Fraction(element.offset) - last_offset
+                            last_offset = Fraction(element.offset)
+
+                            notes_piano.append('r_' + str(element.duration.quarterLength)+'_'+str(delta_offset))
+                            # notes_piano.append('r_' + str(element.duration.quarterLength))
+                            metadata_piano["rest"] += 1
+                        else:
+                            metadata_piano["else_count"] += 1
+                            # else_arr.append(element)
+    print(all_names)
+    return notes_piano, metadata_piano  #, else_arr
 
 
 def mapping(notes):
     sequence_length = 32        # 32
-
     pitchnames = set(notes)
-
     note_to_int = dict((note_var, number) for number, note_var in enumerate(pitchnames))
 
     # ---------------
-    count_num = Counter(notes)
-    Notes = list(count_num.keys())
-    Recurrence = list(count_num.values())
+    # count_num = Counter(notes)
+    # Notes = list(count_num.keys())
+    # Recurrence = list(count_num.values())
 
     # def Average_f(lst):
     #     return sum(lst) / len(lst)
@@ -128,8 +131,6 @@ def mapping(notes):
     input_count = len(nn_input)
     mapped_n_count = float(len(note_to_int))
 
-    # print('---')
-
     # reshape the input into a format compatible with LSTM layers
     nn_input = np.reshape(nn_input, (input_count, sequence_length, 1))
     # normalize input and values for mapped notes
@@ -138,10 +139,6 @@ def mapping(notes):
     #     note_to_int[i] = note_to_int[i] / mapped_n_count
 
     nn_output = np_utils.to_categorical(nn_output)
-    print('---')
-    # print(nn_output.shape())
-
-    # X_train, X_seed, y_train, y_seed = train_test_split(nn_input, nn_output, test_size=0.2, random_state=42)
 
     return nn_input, nn_output, note_to_int, pitchnames
 
@@ -204,12 +201,21 @@ def info_print_out(metadata, unique_elements_count):
     print('\n')
 
 
-def init(file_name):
-
-    notes_and_chords, metadata_p, else_array = parse_midi_file(file_name)               # parse MIDI file
+def init(folder_path):
+    notes_and_chords, metadata_p = parse_midi_file(folder_path)               # parse MIDI file
     lstm_input, lstm_output, notes_to_int, pitch_names = mapping(notes_and_chords)      # mapping MIDI file parts
+
     info_print_out(metadata_p, len(notes_to_int))
 
     lstm_input_shuffled, lstm_output_shuffled = sklearn.utils.shuffle(lstm_input, lstm_output)  # shuffling input and output simultaneously
+    pitch_names_len = len(pitch_names)
 
-    return notes_and_chords, lstm_input_shuffled, lstm_output_shuffled, notes_to_int, pitch_names
+    del notes_and_chords
+    del metadata_p
+    del lstm_input
+    del lstm_output
+    del pitch_names
+    gc.collect()
+
+    # return notes_and_chords, lstm_input_shuffled, lstm_output_shuffled, notes_to_int, pitch_names
+    return lstm_input_shuffled, lstm_output_shuffled, notes_to_int, pitch_names_len

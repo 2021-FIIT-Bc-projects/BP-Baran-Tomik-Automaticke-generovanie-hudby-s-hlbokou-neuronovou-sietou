@@ -1,9 +1,6 @@
-from music21 import converter, instrument, note, chord, stream  #, pitch
+from music21 import instrument, note, chord, stream
 import numpy as np
-
-
 from fractions import Fraction
-import time
 
 
 # source of this function : https://stackoverflow.com/questions/1806278/convert-fraction-to-float
@@ -21,7 +18,7 @@ def convert_to_float(frac_str):
         return whole - frac if whole < 0 else whole + frac
 
 
-def create_midi_file(output, mapping_keys, file_name):
+def create_midi_file(output, mapping_keys, length):
 
     unmapped_from_int = []
     converted = []
@@ -88,14 +85,16 @@ def create_midi_file(output, mapping_keys, file_name):
     try:
         midi_stream = stream.Stream(converted)
         # midi_stream.append(converted)
-        midi_stream.write('midi', fp='midi_samples\\outputs\\new_' + file_name + '_1.mid')
-        print('created new MIDI file')
+        midi_stream.write('midi', fp='midi_samples\\outputs\\new_music_' + str(length) + '.mid')
+        # midi_stream.write('midi', fp='midi_samples\\outputs\\new_music_1.mid')
+        print('Created new MIDI file')
+        print(' ')
     except OSError as e:
         print('\nERROR creating MIDI file in create_midi_file()')
         print(e)
 
 
-def generate_music(nn_model, nn_input, mapped_notes):
+def generate_music(nn_model, nn_input, mapped_notes, length):
 
     generated_music = []
     sequence_len = len(nn_input[0])
@@ -108,7 +107,7 @@ def generate_music(nn_model, nn_input, mapped_notes):
     note_input = note_input / float(mapped_notes_count)
     # note_input = note_inputQ / float(mapped_notes_count)
 
-    for new_note in range(100):
+    for new_note in range(length):
         note_output = nn_model.predict(note_input, verbose=0)
         note_output_max = np.argmax(note_output)
         generated_music.append(note_output_max)
@@ -121,7 +120,6 @@ def generate_music(nn_model, nn_input, mapped_notes):
     return generated_music
 
 
-def init(model, lstm_input, notes_to_int, file_name):
-
-    new_music = generate_music(model, lstm_input, notes_to_int)  # predict new music
-    create_midi_file(new_music, notes_to_int, file_name)  # save new music to MIDI file
+def init(model, lstm_input, notes_to_int, length):
+    new_music = generate_music(model, lstm_input, notes_to_int, length)     # predict new music
+    create_midi_file(new_music, notes_to_int, length)                       # save new music to MIDI file
