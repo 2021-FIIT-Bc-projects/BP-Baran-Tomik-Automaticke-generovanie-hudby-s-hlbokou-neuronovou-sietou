@@ -5,7 +5,8 @@ from fractions import Fraction
 import sklearn
 import os
 import gc
-# from collections import Counter
+from collections import Counter
+import matplotlib.pyplot as plt
 # import tensorflow as tf
 
 
@@ -30,10 +31,7 @@ def parse_midi_file(folder_path):
         "rest": 0,
         "else_count": 0
     }
-    # else_arr = []
 
-    # midi_file_path = 'midi_samples\\'+file_name+'.mid'
-    # midi_files_folder = folder_path
     all_names = []
 
     for oneFile in os.listdir(folder_path):
@@ -46,25 +44,23 @@ def parse_midi_file(folder_path):
             for part in instruments.parts:
 
                 if 'Piano' in str(part):
-                    print('parsing PIANO')
-                # if 'Harpsichord' in str(part):
-                #     print('parsing HARPSICHORD')
+                    print('parsing PIANO', part)
 
                     notes_to_parse = part.recurse()
-                    # print(len(notes_to_parse))            # show Piano Template len
                     last_offset = 0
 
                     # note  -> n_pitch_quarterLength_deltaOffset
                     # chord -> c_pitch_quarterLength_deltaOffset
                     # rest  -> r_quarterLength_deltaOffset
 
+                    elems_count = 0
                     for element in notes_to_parse:
+                        elems_count += 1
                         if isinstance(element, note.Note):
                             delta_offset = Fraction(element.offset) - last_offset
                             last_offset = Fraction(element.offset)
 
                             notes_piano.append('n_'+str(element.pitch)+'_'+str(element.duration.quarterLength)+'_'+str(delta_offset))
-                            # notes_piano.append('n_'+str(element.pitch)+'_'+str(element.duration.quarterLength))
                             metadata_piano["note_count"] += 1
 
                         elif isinstance(element, chord.Chord):
@@ -73,7 +69,6 @@ def parse_midi_file(folder_path):
 
                             chord_ = '.'.join(str(n) for n in element.pitches)
                             notes_piano.append('c_' + chord_ + '_' + str(element.duration.quarterLength)+'_'+str(delta_offset))
-                            # notes_piano.append('c_' + chord_ + '_' + str(element.duration.quarterLength))
                             metadata_piano["chord_count"] += 1
 
                         elif isinstance(element, note.Rest):
@@ -81,42 +76,93 @@ def parse_midi_file(folder_path):
                             last_offset = Fraction(element.offset)
 
                             notes_piano.append('r_' + str(element.duration.quarterLength)+'_'+str(delta_offset))
-                            # notes_piano.append('r_' + str(element.duration.quarterLength))
                             metadata_piano["rest"] += 1
                         else:
                             metadata_piano["else_count"] += 1
-                            # else_arr.append(element)
-    print(all_names)
-    return notes_piano, metadata_piano  #, else_arr
+                    print('^elems_count:', elems_count)
+    print('MIDI dataset:\n', all_names)
+    return notes_piano, metadata_piano
 
 
-def mapping(notes):
-    sequence_length = 32        # 32
+def average_f(lst):
+    return sum(lst) / len(lst)
+
+
+def remove_values_from_list(the_list, val):
+   return [value for value in the_list if value != val]
+
+
+def cut_notes(uncut_notes, metadata):
+    notes = uncut_notes
+    stop_flag = False
+
+    for i in range(2):
+        count_num = Counter(notes)
+        Recurrence = list(count_num.values())
+
+        pitchnames = set(notes)
+        note_to_int_before = dict((note_var, number) for number, note_var in enumerate(pitchnames))
+        avg_r = round(average_f(Recurrence), 2)
+
+        print('\nnumber of notes before:', len(notes))
+        print('number of unique notes before:', len(note_to_int_before))
+        print("average recurrence for a note in notes:", avg_r)
+        print("most frequent note in notes appeared:", max(Recurrence), "times")
+        print("least frequent note in notes appeared:", min(Recurrence), "time/s")
+
+        # if average recurrence is more then a 100, @param avg_r is set to 100 and this will be final eliminating
+        if round(avg_r) >= 100:
+            avg_r = 100
+            stop_flag = True
+
+        # getting a list of elements that appear less then avarage element does
+        rare_note = []
+        cn_items = count_num.items()
+        for index, (key, value) in enumerate(cn_items):
+            if value < round(avg_r):
+                m = key
+                rare_note.append(m)
+        print(f'number of notes occuring less than {round(avg_r)} times:', len(rare_note))
+
+        # eleminating those elements
+        for element in notes:
+            if element in rare_note:
+                len_before = len(notes)
+                notes = remove_values_from_list(notes, element)
+                elements_removed = len_before - len(notes)
+                if element[:1] == 'n':
+                    metadata['note_count'] -= elements_removed
+                elif element[:1] == 'c':
+                    metadata['chord_count'] -= elements_removed
+                elif element[:1] == 'r':
+                    metadata['rest'] -= elements_removed
+
+        print("length of notes after the elemination :", len(notes))
+        if stop_flag:
+            break
+
+    count_num = Counter(notes)
+    Recurrence = list(count_num.values())
+
+    avg_r = round(average_f(Recurrence), 2)
+
+    print("\naverage recurrence for a note in notes:", avg_r)
+    print("most frequent note in notes appeared:", max(Recurrence), "times")
+    print("least frequent note in notes appeared:", min(Recurrence), "time/s")
+
+    del count_num, Recurrence, pitchnames, note_to_int_before, rare_note
+    gc.collect()
+
+    return notes, metadata
+
+
+def mapping(uncut_notes, metadata):
+
+    notes, new_metadata = cut_notes(uncut_notes, metadata)
+
+    sequence_length = 32
     pitchnames = set(notes)
     note_to_int = dict((note_var, number) for number, note_var in enumerate(pitchnames))
-
-    # ---------------
-    # count_num = Counter(notes)
-    # Notes = list(count_num.keys())
-    # Recurrence = list(count_num.values())
-
-    # def Average_f(lst):
-    #     return sum(lst) / len(lst)
-    #
-    # print("\nAverage recurrenc for a note in notes:", Average_f(Recurrence))
-    # print("Most frequent note in notes appeared:", max(Recurrence), "times")
-    # print("Least frequent note in notes appeared:", min(Recurrence), "time")
-
-    # plt.figure(figsize=(18, 3), facecolor="#97BACB")
-    # bins = np.arange(0, (max(Recurrence)), 50)
-    # plt.hist(Recurrence, bins=bins, color="#97BACB")
-    # plt.axvline(x=100, color="#DBACC1")
-    # plt.title("Frequency Distribution Of Notes In The Corpus")
-    # plt.xlabel("Frequency Of Chords in Corpus")
-    # plt.ylabel("Number Of Chords")
-    # plt.show()
-
-    # ------
 
     nn_input = []
     nn_output = []
@@ -140,50 +186,10 @@ def mapping(notes):
 
     nn_output = np_utils.to_categorical(nn_output)
 
+    # print metadata about notes after removing
+    info_print_out(new_metadata, len(note_to_int))
+
     return nn_input, nn_output, note_to_int, pitchnames
-
-
-# def list_instruments(midi):
-#     part_stream = midi.parts.stream()
-#     print("List of instruments found on MIDI file:")
-#     for p in part_stream:
-#         aux = p
-#         print (p.partName)
-
-
-# def mapping(notes):
-#     # skuska implementovat TimeseriesGenerator
-#     sequence_length = 50        # 100
-#
-#     pitchnames = sorted(set(item for item in notes))
-#     note_to_int = dict((note_var, number) for number, note_var in enumerate(pitchnames))
-#
-#     notes_as_int = list(note_to_int.values())
-#     nn_input = []
-#     nn_output = []
-#
-#     generator = TimeseriesGenerator(note_to_int, note_to_int, length=sequence_length, batch_size=1)
-#
-#     # create input sequences and the corresponding outputs
-#     for i in range(0, len(notes) - sequence_length, 1):
-#         sequence_in = notes[i:i + sequence_length]
-#         sequence_out = notes[i + sequence_length]
-#
-#         nn_input.append([note_to_int[char] for char in sequence_in])
-#         nn_output.append(note_to_int[sequence_out])
-#     n_patterns = len(nn_input)
-#
-#     print(generator)
-#     print('r')
-#
-#     # reshape the input into a format compatible with LSTM layers
-#     nn_input = np.reshape(nn_input, (n_patterns, sequence_length, 1))
-#     # normalize input
-#     nn_input = nn_input / float(n_patterns)
-#
-#     nn_output = np_utils.to_categorical(nn_output)
-#
-#     return nn_input, nn_output, note_to_int, pitchnames
 
 
 def info_print_out(metadata, unique_elements_count):
@@ -202,12 +208,10 @@ def info_print_out(metadata, unique_elements_count):
 
 
 def init(folder_path):
-    notes_and_chords, metadata_p = parse_midi_file(folder_path)               # parse MIDI file
-    lstm_input, lstm_output, notes_to_int, pitch_names = mapping(notes_and_chords)      # mapping MIDI file parts
+    notes_and_chords, metadata_p = parse_midi_file(folder_path)                                     # parse MIDI file
+    lstm_input, lstm_output, notes_to_int, pitch_names = mapping(notes_and_chords, metadata_p)      # mapping MIDI file parts
 
-    info_print_out(metadata_p, len(notes_to_int))
-
-    lstm_input_shuffled, lstm_output_shuffled = sklearn.utils.shuffle(lstm_input, lstm_output)  # shuffling input and output simultaneously
+    lstm_input_shuffled, lstm_output_shuffled = sklearn.utils.shuffle(lstm_input, lstm_output)      # shuffling input and output simultaneously
     pitch_names_len = len(pitch_names)
 
     del notes_and_chords
@@ -217,5 +221,4 @@ def init(folder_path):
     del pitch_names
     gc.collect()
 
-    # return notes_and_chords, lstm_input_shuffled, lstm_output_shuffled, notes_to_int, pitch_names
     return lstm_input_shuffled, lstm_output_shuffled, notes_to_int, pitch_names_len

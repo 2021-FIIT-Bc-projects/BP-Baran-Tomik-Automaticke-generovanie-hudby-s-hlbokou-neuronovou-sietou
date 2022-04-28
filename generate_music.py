@@ -49,7 +49,6 @@ def create_midi_file(output, mapping_keys, length):
             note_.storedInstrument = instrument.Piano()
             converted.append(note_)                                                     # appending final array
             metadata['note'] = metadata['note'] + 1
-            # print('f')
 
         elif 'c_' in element:                       # chord
             element = element[2:]                                                       # cut the 'c_' mark
@@ -67,7 +66,6 @@ def create_midi_file(output, mapping_keys, length):
             chord_.offset = offset                                                      # adding offset
             converted.append(chord_)                                                    # appending final array
             metadata['chord'] = metadata['chord'] + 1
-            # print('f')
 
         elif 'r_' in element:                       # rest
             element = element[2:]                                                       # cut the 'r_' mark
@@ -79,14 +77,11 @@ def create_midi_file(output, mapping_keys, length):
             converted.append(rest_)                                                     # appending final array
             metadata['rest'] = metadata['rest'] + 1
 
-    # print(converted)
     print('\nElements of newly generated music: ', metadata)
 
     try:
         midi_stream = stream.Stream(converted)
-        # midi_stream.append(converted)
         midi_stream.write('midi', fp='midi_samples\\outputs\\new_music_' + str(length) + '.mid')
-        # midi_stream.write('midi', fp='midi_samples\\outputs\\new_music_1.mid')
         print('Created new MIDI file')
         print(' ')
     except OSError as e:

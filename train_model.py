@@ -1,7 +1,8 @@
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, LSTM, Activation
 from keras.callbacks import ModelCheckpoint
-# import tensorflow as tf
+import matplotlib.pyplot as plt
+import tensorflow as tf
 
 
 def create_lstm_model(nn_input, n_pitch):
@@ -28,7 +29,7 @@ def create_lstm_model(nn_input, n_pitch):
 
 
 def load_weight_to_model(empt_model):
-    filepath = 'weights\\toLoadWeights\\skoro.hdf5'
+    filepath = 'weights\\toLoadWeights\\maestro2018_cut-109-5.8109.hdf5'
     try:
         empt_model.load_weights(filepath)
     except OSError as e:
@@ -51,11 +52,9 @@ def train_lstm(nn, nn_input, nn_output):
 
     # print('Input shape: ' + nn_input.shape)
     # print('Output shape: ' + nn_output.shape)
-
     # print('X[0]: ', nn_input[0])
     # print('argmax y[0]: ', np.argmax(nn_output[0]))
     # print('argmax y[0] / 182: ', np.argmax(nn_output[0]) / float(182))
-
 
     # gpus = tf.config.experimental.list_physical_devices('GPU')
     # if gpus:
@@ -71,15 +70,32 @@ def train_lstm(nn, nn_input, nn_output):
     #         # Memory growth must be set before GPUs have been initialized
     #         print(e)
 
-    data = nn.fit(nn_input, nn_output, epochs=250, batch_size=16, callbacks=callbacks_list)     # batch_size=64
-    return nn, data
+    # with tf.device('/GPU:0'):
+    data = nn.fit(nn_input, nn_output, epochs=250, batch_size=64, callbacks=callbacks_list)     # batch_size=64
+
+    fig = plt.figure()
+    ax = plt.subplot(111)
+    plt.plot(data.history['loss'], label=f'Loss hodnota', lw=2)
+    plt.title('Trénovanie celého datasetu')
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0 + box.height * 0.1,
+                     box.width, box.height * 0.9])
+    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.135),
+              fancybox=True, shadow=True, ncol=5)
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.draw()
+    plt.show()
+    fig.savefig('tests\\cely-dataset-bs64_nieco.pdf')
+    plt.clf()
+    return nn
 
 
 def init(lstm_input, lstm_output, pitch_names_len):
 
-    empty_model = create_lstm_model(lstm_input, pitch_names_len)           # load layers of NN to model
+    empty_model = create_lstm_model(lstm_input, pitch_names_len)            # load layers of NN to model
 
-    model, data = train_lstm(empty_model, lstm_input, lstm_output)                            # train NN
-    # model = load_weight_to_model(empty_model)  # load weights to model
+    model = train_lstm(empty_model, lstm_input, lstm_output)                # train NN
+    # model = load_weight_to_model(empty_model)                             # load weights to model
 
     return model
