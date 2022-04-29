@@ -18,7 +18,7 @@ def convert_to_float(frac_str):
         return whole - frac if whole < 0 else whole + frac
 
 
-def create_midi_file(output, mapping_keys, length):
+def create_midi_file(output, mapping_keys, length, index, new_file_name):
 
     unmapped_from_int = []
     converted = []
@@ -81,7 +81,7 @@ def create_midi_file(output, mapping_keys, length):
 
     try:
         midi_stream = stream.Stream(converted)
-        midi_stream.write('midi', fp='midi_samples\\outputs\\new_music_' + str(length) + '.mid')
+        midi_stream.write('midi', fp='midi_samples\\outputs\\' + f'{new_file_name}' + str(index) + '.mid')
         print('Created new MIDI file')
         print(' ')
     except OSError as e:
@@ -115,6 +115,6 @@ def generate_music(nn_model, nn_input, mapped_notes, length):
     return generated_music
 
 
-def init(model, lstm_input, notes_to_int, length):
-    new_music = generate_music(model, lstm_input, notes_to_int, length)     # predict new music
-    create_midi_file(new_music, notes_to_int, length)                       # save new music to MIDI file
+def init(model, lstm_input, notes_to_int, length, index, new_file_name):
+    new_music = generate_music(model, lstm_input, notes_to_int, length)         # predict new music
+    create_midi_file(new_music, notes_to_int, length, index, new_file_name)     # save new music to MIDI file

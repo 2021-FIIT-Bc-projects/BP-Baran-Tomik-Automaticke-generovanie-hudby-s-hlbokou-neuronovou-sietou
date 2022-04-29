@@ -92,11 +92,11 @@ def remove_values_from_list(the_list, val):
    return [value for value in the_list if value != val]
 
 
-def cut_notes(uncut_notes, metadata):
+def cut_notes(uncut_notes, metadata, cuts):
     notes = uncut_notes
     stop_flag = False
 
-    for i in range(2):
+    for i in range(cuts):
         count_num = Counter(notes)
         Recurrence = list(count_num.values())
 
@@ -156,11 +156,11 @@ def cut_notes(uncut_notes, metadata):
     return notes, metadata
 
 
-def mapping(uncut_notes, metadata):
+def mapping(uncut_notes, metadata, sequence_len, cuts):
 
-    notes, new_metadata = cut_notes(uncut_notes, metadata)
+    notes, new_metadata = cut_notes(uncut_notes, metadata, cuts)
 
-    sequence_length = 32
+    sequence_length = sequence_len
     pitchnames = set(notes)
     note_to_int = dict((note_var, number) for number, note_var in enumerate(pitchnames))
 
@@ -207,9 +207,9 @@ def info_print_out(metadata, unique_elements_count):
     print('\n')
 
 
-def init(folder_path):
+def init(folder_path, sequence_length, cuts):
     notes_and_chords, metadata_p = parse_midi_file(folder_path)                                     # parse MIDI file
-    lstm_input, lstm_output, notes_to_int, pitch_names = mapping(notes_and_chords, metadata_p)      # mapping MIDI file parts
+    lstm_input, lstm_output, notes_to_int, pitch_names = mapping(notes_and_chords, metadata_p, sequence_length, cuts)      # mapping MIDI file parts
 
     lstm_input_shuffled, lstm_output_shuffled = sklearn.utils.shuffle(lstm_input, lstm_output)      # shuffling input and output simultaneously
     pitch_names_len = len(pitch_names)

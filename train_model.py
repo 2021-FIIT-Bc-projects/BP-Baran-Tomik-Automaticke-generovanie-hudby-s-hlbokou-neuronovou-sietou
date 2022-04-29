@@ -28,8 +28,8 @@ def create_lstm_model(nn_input, n_pitch):
     return lstm_model
 
 
-def load_weight_to_model(empt_model):
-    filepath = 'weights\\toLoadWeights\\maestro2018_cut-109-5.8109.hdf5'
+def load_weight_to_model(empt_model, weight):
+    filepath = f'weights\\toLoadWeights\\{weight}.hdf5'
     try:
         empt_model.load_weights(filepath)
     except OSError as e:
@@ -39,7 +39,7 @@ def load_weight_to_model(empt_model):
     return empt_model
 
 
-def train_lstm(nn, nn_input, nn_output):
+def train_lstm(nn, nn_input, nn_output, epochs, batch_size):
 
     filepath = "weights\\weights-improvement-{epoch:02d}-{loss:.4f}-bigger.hdf5"
     checkpoint = ModelCheckpoint(
@@ -71,7 +71,7 @@ def train_lstm(nn, nn_input, nn_output):
     #         print(e)
 
     # with tf.device('/GPU:0'):
-    data = nn.fit(nn_input, nn_output, epochs=250, batch_size=64, callbacks=callbacks_list)     # batch_size=64
+    data = nn.fit(nn_input, nn_output, epochs=epochs, batch_size=batch_size, callbacks=callbacks_list)     # batch_size=64
 
     fig = plt.figure()
     ax = plt.subplot(111)
@@ -91,11 +91,13 @@ def train_lstm(nn, nn_input, nn_output):
     return nn
 
 
-def init(lstm_input, lstm_output, pitch_names_len):
+def init(lstm_input, lstm_output, pitch_names_len, epochs, batch_size, model_training):
 
-    empty_model = create_lstm_model(lstm_input, pitch_names_len)            # load layers of NN to model
+    empty_model = create_lstm_model(lstm_input, pitch_names_len)                        # load layers of NN to model
 
-    model = train_lstm(empty_model, lstm_input, lstm_output)                # train NN
-    # model = load_weight_to_model(empty_model)                             # load weights to model
+    if model_training["bool"]:
+        model = train_lstm(empty_model, lstm_input, lstm_output, epochs, batch_size)    # train NN
+    else:
+        model = load_weight_to_model(empty_model, model_training["weight"])                                       # load weights to model
 
     return model
