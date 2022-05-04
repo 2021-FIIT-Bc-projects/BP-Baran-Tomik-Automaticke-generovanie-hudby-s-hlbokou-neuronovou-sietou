@@ -2,7 +2,6 @@ from keras.models import Sequential
 from keras.layers import Dense, Dropout, LSTM, Activation
 from keras.callbacks import ModelCheckpoint
 import matplotlib.pyplot as plt
-import tensorflow as tf
 
 
 def create_lstm_model(nn_input, n_pitch):
@@ -98,6 +97,6 @@ def init(lstm_input, lstm_output, pitch_names_len, epochs, batch_size, model_tra
     if model_training["bool"]:
         model = train_lstm(empty_model, lstm_input, lstm_output, epochs, batch_size)    # train NN
     else:
-        model = load_weight_to_model(empty_model, model_training["weight"])                                       # load weights to model
+        model = load_weight_to_model(empty_model, model_training["weight"])             # load weights to model
 
     return model

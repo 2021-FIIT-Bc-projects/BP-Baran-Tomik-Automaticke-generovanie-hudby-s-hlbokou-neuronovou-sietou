@@ -77,7 +77,7 @@ def create_midi_file(output, mapping_keys, length, index, new_file_name):
             converted.append(rest_)                                                     # appending final array
             metadata['rest'] = metadata['rest'] + 1
 
-    print('\nElements of newly generated music: ', metadata)
+    print(f'\nElements of newly generated music with index={index}: ', metadata)
 
     try:
         midi_stream = stream.Stream(converted)

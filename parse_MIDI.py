@@ -6,8 +6,6 @@ import sklearn
 import os
 import gc
 from collections import Counter
-import matplotlib.pyplot as plt
-# import tensorflow as tf
 
 
 def load_midi_file(file_name):
@@ -208,10 +206,10 @@ def info_print_out(metadata, unique_elements_count):
 
 
 def init(folder_path, sequence_length, cuts):
-    notes_and_chords, metadata_p = parse_midi_file(folder_path)                                     # parse MIDI file
-    lstm_input, lstm_output, notes_to_int, pitch_names = mapping(notes_and_chords, metadata_p, sequence_length, cuts)      # mapping MIDI file parts
+    notes_and_chords, metadata_p = parse_midi_file(folder_path)                                                         # parse MIDI file
+    lstm_input, lstm_output, notes_to_int, pitch_names = mapping(notes_and_chords, metadata_p, sequence_length, cuts)   # mapping MIDI file parts
 
-    lstm_input_shuffled, lstm_output_shuffled = sklearn.utils.shuffle(lstm_input, lstm_output)      # shuffling input and output simultaneously
+    lstm_input_shuffled, lstm_output_shuffled = sklearn.utils.shuffle(lstm_input, lstm_output)                          # shuffling input and output simultaneously
     pitch_names_len = len(pitch_names)
 
     del notes_and_chords

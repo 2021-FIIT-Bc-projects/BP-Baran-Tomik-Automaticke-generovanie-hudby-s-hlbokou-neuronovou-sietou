@@ -6,9 +6,9 @@
     "batch_size": "64",
     "training": {
         "bool": false,
-        "weight": "mozart-333_3_1cuts_epoch243-0.4290"
+        "weight": "mozart-333_3_1cuts_5times_epoch244-0.0966"
     },
     "new_music_length": "100",
     "tracks_to_generate": "20",
-    "new_music_file_name": "mozart-333_3_64_1cuts_"
+    "new_music_file_name": "mozart-333_3_64_1cuts_5times_"
 }
