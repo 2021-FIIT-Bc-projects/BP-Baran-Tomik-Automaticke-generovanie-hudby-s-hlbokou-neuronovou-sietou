@@ -1,14 +1,14 @@
 {
     "sequence_length": "32",
-    "dataset_folder": "one_mozart_sample",
-    "cuts": "1",
+    "dataset_folder": "test",
+    "cuts": "0",
     "epochs": "250",
     "batch_size": "64",
     "training": {
-        "bool": false,
-        "weight": "mozart-333_3_1cuts_5times_epoch244-0.0966"
+        "bool": true,
+        "weight": ""
     },
-    "new_music_length": "100",
+    "new_music_length": "150",
     "tracks_to_generate": "20",
-    "new_music_file_name": "mozart-333_3_64_1cuts_5times_"
+    "new_music_file_name": "elise_shuffle_test_"
 }

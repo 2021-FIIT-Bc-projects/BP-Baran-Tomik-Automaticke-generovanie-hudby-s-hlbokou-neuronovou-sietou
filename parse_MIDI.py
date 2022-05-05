@@ -156,7 +156,10 @@ def cut_notes(uncut_notes, metadata, cuts):
 
 def mapping(uncut_notes, metadata, sequence_len, cuts):
 
-    notes, new_metadata = cut_notes(uncut_notes, metadata, cuts)
+    if cuts > 0:
+        notes, new_metadata = cut_notes(uncut_notes, metadata, cuts)
+    else:
+        notes, new_metadata = uncut_notes, metadata
 
     sequence_length = sequence_len
     pitchnames = set(notes)
@@ -209,14 +212,15 @@ def init(folder_path, sequence_length, cuts):
     notes_and_chords, metadata_p = parse_midi_file(folder_path)                                                         # parse MIDI file
     lstm_input, lstm_output, notes_to_int, pitch_names = mapping(notes_and_chords, metadata_p, sequence_length, cuts)   # mapping MIDI file parts
 
-    lstm_input_shuffled, lstm_output_shuffled = sklearn.utils.shuffle(lstm_input, lstm_output)                          # shuffling input and output simultaneously
+    # lstm_input_shuffled, lstm_output_shuffled = sklearn.utils.shuffle(lstm_input, lstm_output)                          # shuffling input and output simultaneously
     pitch_names_len = len(pitch_names)
 
     del notes_and_chords
     del metadata_p
-    del lstm_input
-    del lstm_output
+    # del lstm_input
+    # del lstm_output
     del pitch_names
     gc.collect()
 
-    return lstm_input_shuffled, lstm_output_shuffled, notes_to_int, pitch_names_len
+    return lstm_input, lstm_output, notes_to_int, pitch_names_len
+    # return lstm_input_shuffled, lstm_output_shuffled, notes_to_int, pitch_names_len
