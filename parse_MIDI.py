@@ -1,11 +1,10 @@
 from music21 import converter, instrument, note, chord
-import numpy as np
 from keras.utils import np_utils
+from collections import Counter
 from fractions import Fraction
-import sklearn
+import numpy as np
 import os
 import gc
-from collections import Counter
 
 
 def load_midi_file(file_name):
@@ -31,6 +30,7 @@ def parse_midi_file(folder_path):
     }
 
     all_names = []
+    print('Parsing PIANO...')
 
     for oneFile in os.listdir(folder_path):
         if oneFile.endswith(".mid"):
@@ -42,7 +42,7 @@ def parse_midi_file(folder_path):
             for part in instruments.parts:
 
                 if 'Piano' in str(part):
-                    print('parsing PIANO', part)
+                    # print('parsing PIANO', part)
 
                     notes_to_parse = part.recurse()
                     last_offset = 0
@@ -51,9 +51,7 @@ def parse_midi_file(folder_path):
                     # chord -> c_pitch_quarterLength_deltaOffset
                     # rest  -> r_quarterLength_deltaOffset
 
-                    elems_count = 0
                     for element in notes_to_parse:
-                        elems_count += 1
                         if isinstance(element, note.Note):
                             delta_offset = Fraction(element.offset) - last_offset
                             last_offset = Fraction(element.offset)
@@ -77,8 +75,10 @@ def parse_midi_file(folder_path):
                             metadata_piano["rest"] += 1
                         else:
                             metadata_piano["else_count"] += 1
-                    print('^elems_count:', elems_count)
-    print('MIDI dataset:\n', all_names)
+
+    print('Parsing PIANO finished')
+    print('Parsed MIDI dataset:\n', all_names)
+    print('Parsed MIDI dataset length:', len(all_names))
     return notes_piano, metadata_piano
 
 
@@ -95,8 +95,8 @@ def cut_notes(uncut_notes, metadata, cuts):
     stop_flag = False
 
     for i in range(cuts):
-        count_num = Counter(notes)
-        Recurrence = list(count_num.values())
+        notes_count = Counter(notes)
+        Recurrence = list(notes_count.values())
 
         pitchnames = set(notes)
         note_to_int_before = dict((note_var, number) for number, note_var in enumerate(pitchnames))
@@ -114,17 +114,17 @@ def cut_notes(uncut_notes, metadata, cuts):
             stop_flag = True
 
         # getting a list of elements that appear less then avarage element does
-        rare_note = []
-        cn_items = count_num.items()
+        less_avg_note = []
+        cn_items = notes_count.items()
         for index, (key, value) in enumerate(cn_items):
             if value < round(avg_r):
                 m = key
-                rare_note.append(m)
-        print(f'number of notes occuring less than {round(avg_r)} times:', len(rare_note))
+                less_avg_note.append(m)
+        print(f'number of notes occuring less than {round(avg_r)} times:', len(less_avg_note))
 
-        # eleminating those elements
+        # eleminating those elements and adjusting metadata accordingly
         for element in notes:
-            if element in rare_note:
+            if element in less_avg_note:
                 len_before = len(notes)
                 notes = remove_values_from_list(notes, element)
                 elements_removed = len_before - len(notes)
@@ -139,8 +139,8 @@ def cut_notes(uncut_notes, metadata, cuts):
         if stop_flag:
             break
 
-    count_num = Counter(notes)
-    Recurrence = list(count_num.values())
+    notes_count = Counter(notes)
+    Recurrence = list(notes_count.values())
 
     avg_r = round(average_f(Recurrence), 2)
 
@@ -148,7 +148,7 @@ def cut_notes(uncut_notes, metadata, cuts):
     print("most frequent note in notes appeared:", max(Recurrence), "times")
     print("least frequent note in notes appeared:", min(Recurrence), "time/s")
 
-    del count_num, Recurrence, pitchnames, note_to_int_before, rare_note
+    del notes_count, Recurrence, pitchnames, note_to_int_before, less_avg_note
     gc.collect()
 
     return notes, metadata
@@ -168,23 +168,23 @@ def mapping(uncut_notes, metadata, sequence_len, cuts):
     nn_input = []
     nn_output = []
 
-    for i in range(0, len(notes) - sequence_length, 1):
+    for i in range(0, len(notes) - sequence_length):
         sequence_in = notes[i:i + sequence_length]
         sequence_out = notes[i + sequence_length]
 
-        nn_input.append([note_to_int[char] for char in sequence_in])
+        nn_input.append([note_to_int[one_note] for one_note in sequence_in])
         nn_output.append(note_to_int[sequence_out])
 
     input_count = len(nn_input)
     mapped_n_count = float(len(note_to_int))
 
-    # reshape the input into a format compatible with LSTM layers
+    # reshape the input so it's compatible with LSTM layers
     nn_input = np.reshape(nn_input, (input_count, sequence_length, 1))
-    # normalize input and values for mapped notes
-    nn_input = nn_input / mapped_n_count
-    # for i in note_to_int:
-    #     note_to_int[i] = note_to_int[i] / mapped_n_count
 
+    # normalize input values
+    nn_input = nn_input / mapped_n_count
+
+    # set output values so it's compatible with LSTM layers
     nn_output = np_utils.to_categorical(nn_output)
 
     # print metadata about notes after removing
@@ -212,15 +212,14 @@ def init(folder_path, sequence_length, cuts):
     notes_and_chords, metadata_p = parse_midi_file(folder_path)                                                         # parse MIDI file
     lstm_input, lstm_output, notes_to_int, pitch_names = mapping(notes_and_chords, metadata_p, sequence_length, cuts)   # mapping MIDI file parts
 
-    # lstm_input_shuffled, lstm_output_shuffled = sklearn.utils.shuffle(lstm_input, lstm_output)                          # shuffling input and output simultaneously
+    # lstm_input_shuffled, lstm_output_shuffled = sklearn.utils.shuffle(lstm_input, lstm_output)                        # shuffling input and output simultaneously
     pitch_names_len = len(pitch_names)
 
-    del notes_and_chords
-    del metadata_p
     # del lstm_input
     # del lstm_output
+    del notes_and_chords
+    del metadata_p
     del pitch_names
     gc.collect()
 
     return lstm_input, lstm_output, notes_to_int, pitch_names_len
-    # return lstm_input_shuffled, lstm_output_shuffled, notes_to_int, pitch_names_len

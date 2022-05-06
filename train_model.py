@@ -2,6 +2,7 @@ from keras.models import Sequential
 from keras.layers import Dense, Dropout, LSTM, Activation
 from keras.callbacks import ModelCheckpoint
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 def create_lstm_model(nn_input, n_pitch):
@@ -49,29 +50,13 @@ def train_lstm(nn, nn_input, nn_output, epochs, batch_size):
     )
     callbacks_list = [checkpoint]
 
-    # print('Input shape: ' + nn_input.shape)
-    # print('Output shape: ' + nn_output.shape)
     # print('X[0]: ', nn_input[0])
     # print('argmax y[0]: ', np.argmax(nn_output[0]))
-    # print('argmax y[0] / 182: ', np.argmax(nn_output[0]) / float(182))
+    # print('argmax y[0] / 18: ', np.argmax(nn_output[0]) / float(18))  # 18 je cislo mapped_notes
 
-    # gpus = tf.config.experimental.list_physical_devices('GPU')
-    # if gpus:
-    #     try:
-    #         # Currently, memory growth needs to be the same across GPUs
-    #         for gpu in gpus:
-    #             tf.config.experimental.set_memory_growth(gpu, True)
-    #         logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-    #         print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-    #         data = nn.fit(nn_input, nn_output, epochs=250, batch_size=16, callbacks=callbacks_list)  # batch_size=64
-    #         return nn, data
-    #     except RuntimeError as e:
-    #         # Memory growth must be set before GPUs have been initialized
-    #         print(e)
+    data = nn.fit(nn_input, nn_output, epochs=epochs, batch_size=batch_size, callbacks=callbacks_list)
 
-    # with tf.device('/GPU:0'):
-    data = nn.fit(nn_input, nn_output, epochs=epochs, batch_size=batch_size, callbacks=callbacks_list)     # batch_size=64
-
+    # draw a graph of loss during training
     fig = plt.figure()
     ax = plt.subplot(111)
     plt.plot(data.history['loss'], label=f'Loss hodnota', lw=2)
@@ -85,8 +70,9 @@ def train_lstm(nn, nn_input, nn_output, epochs, batch_size):
     plt.ylabel('Loss')
     plt.draw()
     plt.show()
-    fig.savefig('tests\\cely-dataset-bs64_nieco.pdf')
+    fig.savefig('tests\\cely-dataset-bs64_.pdf')
     plt.clf()
+
     return nn
 
 

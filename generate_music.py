@@ -18,7 +18,7 @@ def convert_to_float(frac_str):
         return whole - frac if whole < 0 else whole + frac
 
 
-def create_midi_file(output, mapping_keys, length, index, new_file_name):
+def create_midi_file(output, mapping_keys, index, new_file_name):
 
     unmapped_from_int = []
     converted = []
@@ -83,7 +83,6 @@ def create_midi_file(output, mapping_keys, length, index, new_file_name):
         midi_stream = stream.Stream(converted)
         midi_stream.write('midi', fp='midi_samples\\outputs\\' + f'{new_file_name}' + str(index) + '.mid')
         print('Created new MIDI file')
-        print(' ')
     except OSError as e:
         print('\nERROR creating MIDI file in create_midi_file()')
         print(e)
@@ -94,15 +93,13 @@ def generate_music(nn_model, nn_input, mapped_notes, length):
     generated_music = []
     sequence_len = len(nn_input[0])
     mapped_notes_count = len(mapped_notes)
-    start = np.random.randint(0, len(nn_input) - 1)
-    # int_to_notes = {v: k for k, v in mapped_notes.items()}
-    pattern = nn_input[start]
+    init_input = np.random.randint(0, len(nn_input) - 1)
+    pattern = nn_input[init_input]
 
     note_input = np.array(pattern).reshape((1, sequence_len, 1))
-    note_input = note_input / float(mapped_notes_count)
-    # note_input = note_inputQ / float(mapped_notes_count)
+    note_input = note_input / float(mapped_notes_count)             # works without it, but generated music is significantly better
 
-    for new_note in range(length):
+    for i in range(length):
         note_output = nn_model.predict(note_input, verbose=0)
         note_output_max = np.argmax(note_output)
         generated_music.append(note_output_max)
@@ -116,5 +113,5 @@ def generate_music(nn_model, nn_input, mapped_notes, length):
 
 
 def init(model, lstm_input, notes_to_int, length, index, new_file_name):
-    new_music = generate_music(model, lstm_input, notes_to_int, length)         # predict new music
-    create_midi_file(new_music, notes_to_int, length, index, new_file_name)     # save new music to MIDI file
+    new_music = generate_music(model, lstm_input, notes_to_int, length)     # predict new music
+    create_midi_file(new_music, notes_to_int, index, new_file_name)         # save new music to MIDI file
