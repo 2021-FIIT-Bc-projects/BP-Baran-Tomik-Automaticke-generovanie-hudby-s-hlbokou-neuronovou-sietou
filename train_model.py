@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def create_lstm_model(nn_input, n_pitch):
+def create_lstm_model(nn_input, enique_pitchese_num):
     lstm_model = Sequential()
     lstm_model.add(LSTM(
         256,
@@ -21,7 +21,7 @@ def create_lstm_model(nn_input, n_pitch):
     lstm_model.add(Dense(256))
     lstm_model.add(Dropout(0.6))
 
-    lstm_model.add(Dense(n_pitch))
+    lstm_model.add(Dense(enique_pitchese_num))
     lstm_model.add(Activation('sigmoid'))
     lstm_model.compile(optimizer='Adam', loss='categorical_crossentropy')
 
@@ -50,9 +50,9 @@ def train_lstm(nn, nn_input, nn_output, epochs, batch_size):
     )
     callbacks_list = [checkpoint]
 
-    # print('X[0]: ', nn_input[0])
-    # print('argmax y[0]: ', np.argmax(nn_output[0]))
-    # print('argmax y[0] / 18: ', np.argmax(nn_output[0]) / float(18))  # 18 je cislo mapped_notes
+    print('X[0]: ', nn_input[0])
+    print('argmax y[0]: ', np.argmax(nn_output[0]))
+    print('argmax y[0] / 18: ', np.argmax(nn_output[0]) / float(18))  # 18 je cislo mapped_notes
 
     data = nn.fit(nn_input, nn_output, epochs=epochs, batch_size=batch_size, callbacks=callbacks_list)
 
