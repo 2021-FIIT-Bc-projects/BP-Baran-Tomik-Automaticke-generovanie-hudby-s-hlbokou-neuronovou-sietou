@@ -95,6 +95,7 @@ def cut_notes(uncut_notes, metadata, cuts):
     stop_flag = False
 
     for i in range(cuts):
+        print('\n------CUTTING ELEMENTS - ' + str(i+1) + '------')
         notes_count = Counter(notes)
         Recurrence = list(notes_count.values())
 
@@ -102,11 +103,11 @@ def cut_notes(uncut_notes, metadata, cuts):
         note_to_int_before = dict((note_var, number) for number, note_var in enumerate(pitchnames))
         avg_r = round(average_f(Recurrence), 2)
 
-        print('\nnumber of notes before:', len(notes))
-        print('number of unique notes before:', len(note_to_int_before))
-        print("average recurrence for a note in notes:", avg_r)
-        print("most frequent note in notes appeared:", max(Recurrence), "times")
-        print("least frequent note in notes appeared:", min(Recurrence), "time/s")
+        print('Number of elements before:                       ', len(notes))
+        print('Number of unique elements before:                ', len(note_to_int_before))
+        print('Average recurrence for an element in elements:   ', avg_r)
+        print('Most frequent element in elements appeared:      ', max(Recurrence), "times")
+        print('Least frequent element in elements appeared:     ', min(Recurrence), "time/s")
 
         # if average recurrence is more then a 100, @param avg_r is set to 100 and this will be final eliminating
         if round(avg_r) >= 100:
@@ -120,7 +121,8 @@ def cut_notes(uncut_notes, metadata, cuts):
             if value < round(avg_r):
                 m = key
                 less_avg_note.append(m)
-        print(f'number of notes occuring less than {round(avg_r)} times:', len(less_avg_note))
+        # print(f'Number of elements occuring less than {round(avg_r)} times: ', len(less_avg_note))
+        print(f'Number of elements occuring less than average:    {len(less_avg_note)} ({round(avg_r)} times)')
 
         # eleminating those elements and adjusting metadata accordingly
         for element in notes:
@@ -135,7 +137,7 @@ def cut_notes(uncut_notes, metadata, cuts):
                 elif element[:1] == 'r':
                     metadata['rest'] -= elements_removed
 
-        print("length of notes after the elemination :", len(notes))
+        print("Length of elements after the elemination:        ", len(notes))
         if stop_flag:
             break
 
@@ -144,9 +146,10 @@ def cut_notes(uncut_notes, metadata, cuts):
 
     avg_r = round(average_f(Recurrence), 2)
 
-    print("\naverage recurrence for a note in notes:", avg_r)
-    print("most frequent note in notes appeared:", max(Recurrence), "times")
-    print("least frequent note in notes appeared:", min(Recurrence), "time/s")
+    print('\n------CUTTING FINISHED------')
+    print("Average recurrence for an element in elements:   ", avg_r)
+    print("Most frequent element in elements appeared:      ", max(Recurrence), "times")
+    print("Least frequent element in elements appeared:     ", min(Recurrence), "time/s")
 
     del notes_count, Recurrence, pitchnames, note_to_int_before, less_avg_note
     gc.collect()

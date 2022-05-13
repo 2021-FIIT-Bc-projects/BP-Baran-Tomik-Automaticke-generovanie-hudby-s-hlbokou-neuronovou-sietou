@@ -12,13 +12,14 @@ os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 physical_devices = tf.config.list_physical_devices('GPU')
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ["SM_FRAMEWORK"] = "tf.keras"
 
 
 if __name__ == '__main__':
 
     try:
         start_time = time.time()
-        print('Num GPUs Available: ', len(tf.config.list_physical_devices('GPU')))
+        print('\nNum GPUs Available: ' + str(len(tf.config.list_physical_devices('GPU'))) + '\n')
 
         with open('config.json', 'r') as f:
             config = json.load(f)
@@ -36,12 +37,14 @@ if __name__ == '__main__':
         lstm_input, lstm_output, notes_to_int, pitch_names_len = parse_MIDI.init(midi_files_folder, sequence_length, cuts)
         model = train_model.init(lstm_input, lstm_output, pitch_names_len, epochs, batch_size, model_training)
 
+        print('\n\nGENERATING NEW MUSIC...\n')
+
         for i in range(tracks_to_generate):
             generate_music.init(model, lstm_input, notes_to_int, new_music_length, i, new_music_file_name)
 
         end_time = time.time()
         print('Time:', int(end_time - start_time), 's')
-        print('\n--- END ---\n')
+        print('\n\n--- END ---\n')
         # model.summary()
 
     except OSError as e:
