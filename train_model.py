@@ -65,7 +65,7 @@ def train_lstm(nn, nn_input, nn_output, epochs, batch_size):
     plt.ylabel('Loss')
     plt.draw()
     plt.show()
-    fig.savefig('tests\\cely-dataset-bs64_.pdf')
+    fig.savefig('krivka_ucenia(Loss).pdf')
     plt.clf()
 
     return nn

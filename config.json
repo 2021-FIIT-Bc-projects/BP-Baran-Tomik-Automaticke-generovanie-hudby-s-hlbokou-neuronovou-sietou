@@ -1,11 +1,11 @@
 {
     "sequence_length": "32",
-    "dataset_folder": "mozart",
+    "dataset_folder": "test",
     "cuts": "2",
-    "epochs": "250",
+    "epochs": "2",
     "batch_size": "64",
     "training": {
-        "bool": false,
+        "bool": true,
         "weight": "mozart_64_PC_NONSHUFFLE_2cuts_epoch248-1.3098_final"
     },
     "new_music_length": "150",

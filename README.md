@@ -6,8 +6,11 @@
 
 ## Potrebne kniznice:
 
-* Music21
-* Keras
-* h5py
+* keras
+* keras-nightly
+* matplotlib
+* music21
+* numpy
+* tensorflow
 
 
